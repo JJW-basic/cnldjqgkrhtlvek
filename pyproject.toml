@@ -15,11 +15,14 @@ dependencies = [
 
 [dependency-groups]
 ai = [
+    "joblib>=1.4.0",
+    "numpy>=1.26.0",
+    "pandas>=2.2.0",
     "scikit-learn>=1.8.0",
     "torch",
     "torchvision",
     "torchaudio",
-    "sentence-transformers>=5.2.0"
+    "sentence-transformers>=5.2.0",
 ]
 app = [
     "fastapi[standard]>=0.128.0",
