@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any, Self
 from uuid import uuid4
 
 from app.core import config
-from app.models.users import User
 from app.utils.jwt.exceptions import ExpiredTokenError, TokenBackendError, TokenBackendExpiredError, TokenError
 from app.utils.jwt.state import token_backend
 
@@ -42,7 +41,7 @@ class Token:
     def __repr__(self) -> str:
         return repr(self.payload)
 
-    def __getitem__(self, key: str):
+    def __getitem__(self, key: str) -> Any:
         return self.payload[key]
 
     def __setitem__(self, key: str, value: Any) -> None:
@@ -51,34 +50,28 @@ class Token:
     def __delitem__(self, key: str) -> None:
         del self.payload[key]
 
-    def __contains__(self, key: str) -> Any:
+    def __contains__(self, key: str) -> bool:
         return key in self.payload
 
     def __str__(self) -> str:
-        """
-        Signs and returns a token as a base64 encoded string.
-        """
         return self._token_backend.encode(self.payload)
 
     def set_exp(self, from_time: datetime | None = None, lifetime: timedelta | None = None) -> None:
         if from_time is None:
             from_time = self.current_time
-
         if lifetime is None:
             lifetime = self.lifetime
-
         assert lifetime is not None
-
-        dt = from_time + lifetime
-        self.payload["exp"] = timegm(dt.timetuple())
+        self.payload["exp"] = timegm((from_time + lifetime).timetuple())
 
     def set_jti(self) -> None:
         self.payload["jti"] = uuid4().hex
 
     @classmethod
-    def for_user(cls, user: User) -> Self:
+    def for_payload(cls, payload: dict[str, Any]) -> Self:
         token = cls()
-        token["user_id"] = user.id
+        for key, value in payload.items():
+            token[key] = value
         return token
 
 
@@ -96,11 +89,7 @@ class RefreshToken(Token):
     def access_token(self) -> AccessToken:
         access = AccessToken()
         access.set_exp(from_time=self.current_time)
-
-        no_copy = self.no_copy_claims
         for claim, value in self.payload.items():
-            if claim in no_copy:
-                continue
-            access[claim] = value
-
+            if claim not in self.no_copy_claims:
+                access[claim] = value
         return access
