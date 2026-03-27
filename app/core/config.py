@@ -30,4 +30,12 @@ class Config(BaseSettings):
     REDIS_PORT: int = 6379
     TASK_RESULT_TTL: int = 3600
 
+    # OAuth
+    KAKAO_CLIENT_ID: str = ""
+    KAKAO_CLIENT_SECRET: str = ""
+    KAKAO_REDIRECT_URI: str = "http://localhost/oauth/callback/kakao"
+    NAVER_CLIENT_ID: str = ""
+    NAVER_CLIENT_SECRET: str = ""
+    NAVER_REDIRECT_URI: str = "http://localhost/oauth/callback/naver"
+
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost"]

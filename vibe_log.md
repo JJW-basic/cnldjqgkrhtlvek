@@ -114,3 +114,56 @@
   - `POST http://localhost/api/v1/prediction/` → task_id 발급 ✅
   - `GET http://localhost/api/v1/prediction/{task_id}` → `{"status":"completed","DJ8_pre":1,"DI1_pre":0,"DE1_pre":0,"DI2_pre":0}` ✅
   - AI Worker 로그: `[Worker] Task ... 완료` ✅
+
+## [2025-07-10 20:30] - ✅ 카카오/네이버 OAuth 로그인 구현 완료
+
+* **변경된 파일:**
+  - `app/core/config.py`
+  - `app/apis/v1/auth_routers.py`
+  - `app/dtos/auth.py`
+  - `src/app/components/LoginPage.tsx`
+  - `src/app/components/OAuthCallbackPage.tsx` (신규)
+  - `src/app/routes.ts`
+  - `src/app/components/Layout.tsx`
+  - `.env`
+  - `DEPLOYMENT_GUIDE.md`
+
+* **핵심 변경 사항:**
+  - [논리]: 기존 mock navigate 방식을 실제 OAuth Authorization Code Flow로 교체. FastAPI가 카카오/네이버 인가 서버로 redirect → 인가 코드 수신 → 토큰 교환 → 사용자 ID 조회 → 내부 JWT 발급의 전체 흐름 구현
+  - [기능 추가]: `GET /api/v1/auth/kakao/login` — 카카오 인가 서버로 307 redirect
+  - [기능 추가]: `GET /api/v1/auth/kakao/callback` — 인가 코드 → 카카오 토큰 교환 → 사용자 ID 조회 → JWT 발급
+  - [기능 추가]: `GET /api/v1/auth/naver/login` — 네이버 인가 서버로 307 redirect (state 포함)
+  - [기능 추가]: `GET /api/v1/auth/naver/callback` — 인가 코드 → 네이버 토큰 교환 → 사용자 ID 조회 → JWT 발급
+  - [기능 추가]: `OAuthCallbackPage.tsx` — `/oauth/callback/:provider` 라우트에서 code 파라미터 수신 → FastAPI 콜백 호출 → access_token sessionStorage 저장 → /services 이동
+  - [기능 수정]: `LoginPage.tsx` — mock navigate 제거, `window.location.href`로 실제 OAuth redirect
+  - [기능 수정]: `Layout.tsx` — 로그아웃 시 sessionStorage 토큰 제거
+  - [설정 추가]: `config.py`에 KAKAO/NAVER CLIENT_ID, CLIENT_SECRET, REDIRECT_URI 필드 추가
+  - [설정 추가]: `.env`에 KAKAO_REDIRECT_URI, NAVER_REDIRECT_URI 추가
+
+* **결과 확인:**
+  - `npm run build` ✅ (1600 modules, 6.12s)
+  - `docker compose build fastapi` ✅
+  - `docker compose up -d` ✅ (4개 컨테이너 모두 Up)
+  - `GET http://localhost/` → HTTP 200 ✅
+  - `GET /api/v1/auth/kakao/login` → 307 redirect → `https://kauth.kakao.com/oauth/authorize?client_id=...` ✅
+  - `GET /api/v1/auth/naver/login` → 307 redirect → `https://nid.naver.com/oauth2.0/authorize?client_id=...` ✅
+  - OpenAPI 경로 확인: `/api/v1/auth/kakao/login`, `/api/v1/auth/kakao/callback`, `/api/v1/auth/naver/login`, `/api/v1/auth/naver/callback`, `/api/v1/auth/token/refresh` ✅
+
+## [2025-07-10 21:00] - ✅ 보안 취약점 2건 해결 (네이버 CSRF 방어 + 설문 API 인증)
+
+* **변경된 파일:**
+  - `app/apis/v1/auth_routers.py`
+  - `app/apis/v1/prediction_routers.py`
+  - `src/app/components/SurveyPage.tsx`
+
+* **핵심 변경 사항:**
+  - [논리 1 — CSRF 방어]: 네이버 OAuth state 값을 Redis에 TTL 300초(5분)로 저장. 콜백 수신 시 `getdel`로 조회+삭제(1회용) 처리하여 재사용 공격 차단. 불일치/만료 시 400 반환
+  - [논리 2 — API 인증]: 설문 제출(`POST /prediction/`)과 결과 조회(`GET /prediction/{task_id}`) 엔드포인트에 `Depends(get_request_user)` 추가. 유효한 JWT 없이 호출 시 401 반환
+  - [기능 수정]: `SurveyPage.tsx` — `sessionStorage`에서 access_token을 읽어 `Authorization: Bearer` 헤더로 전달
+
+* **결과 확인:**
+  - `npm run build` ✅
+  - `docker compose build fastapi` ✅
+  - 인증 없이 `POST /api/v1/prediction/` → HTTP 401 ✅
+  - `GET /api/v1/auth/naver/login` → 307 redirect, Redis에 `oauth:naver:state:*` 키 저장 확인 ✅
+  - 위조 state로 콜백 호출 시 400 반환 (Redis key 없음) ✅

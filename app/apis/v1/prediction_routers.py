@@ -1,8 +1,9 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import ORJSONResponse as Response
 
+from app.dependencies.security import get_request_user
 from app.dtos.prediction import PredictionRequest, PredictionStatusResponse
 from app.services.prediction import PredictionService
 
@@ -13,6 +14,7 @@ prediction_router = APIRouter(prefix="/prediction", tags=["prediction"])
 async def submit_prediction(
     request: PredictionRequest,
     service: Annotated[PredictionService, Depends(PredictionService)],
+    _user: Annotated[dict[str, Any], Depends(get_request_user)],
 ) -> Response:
     task_id = service.enqueue(request.survey_data)
     return Response(content={"task_id": task_id}, status_code=status.HTTP_202_ACCEPTED)
@@ -22,6 +24,7 @@ async def submit_prediction(
 async def get_prediction_result(
     task_id: str,
     service: Annotated[PredictionService, Depends(PredictionService)],
+    _user: Annotated[dict[str, Any], Depends(get_request_user)],
 ) -> Response:
     result = service.get_result(task_id)
     if result is None:

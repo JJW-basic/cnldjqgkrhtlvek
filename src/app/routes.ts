@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./components/LoginPage";
+import { OAuthCallbackPage } from "./components/OAuthCallbackPage";
 import { ServiceSelectionPage } from "./components/ServiceSelectionPage";
 import { SurveyPage } from "./components/SurveyPage";
 import { DashboardPage } from "./components/DashboardPage";
@@ -13,6 +14,7 @@ export const router = createBrowserRouter([
     Component: Layout,
     children: [
       { index: true, Component: LoginPage },
+      { path: "oauth/callback/:provider", Component: OAuthCallbackPage },
       { path: "services", Component: ServiceSelectionPage },
       { path: "survey", Component: SurveyPage },
       { path: "dashboard", Component: DashboardPage },

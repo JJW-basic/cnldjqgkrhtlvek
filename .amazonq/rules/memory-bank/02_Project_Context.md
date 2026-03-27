@@ -16,8 +16,8 @@
 		- 'AI 모델', '사이트의 기술 스택(Tech Stack)' 페이지는 각 페이지 제목에 대한 설명만을 제공한다.
 	3) React SPA 앱의 '만성질환 예측 설문' 페이지로 진입
 		- 국민건강영양조사(KNHANES)를 기반으로 만든 80개의 문항에 대한 설문 진행
-		- 설문 진행은 다음 80개의 변수명과 매칭되는 문항 순서로 진행 "sex", "age", "cfam", "genertn", "house", "live_t", "marri_1", "fam_rela", "tins", "npins", "D_1_1", "D_2_1", "M_2_yr", "BH9_11", "BH1", "BH2_61", "LQ4_00", "LQ1_sb", "LQ2_ab", "AC1_yr", "MH1_yr", "MO1_wk", "educ", "EC1_1", "EC_lgw_2", "BO1", "BO1_1", "BO2_1", "BD1_11", "BD2_1", "BD2_31", "BD7_4", "BD7_5", "BA2_12", "BA2_13", "BA2_14", "BP1", "BP7", "BS1_1", "BS12_37", "BS12_1", "BS8_2", "BS9_2", "BS13", "BE3_71", "BE3_81", "BE3_91", "BE3_75", "BE3_85", "BE8_1", "BE3_31", "BE5_1", "HE_fh", "HE_ht", "HE_wt", "HE_wc", "OR1", "O_pain", "O_ortho", "BM1_0", "BM7", "BM8", "OR1_2", "MO4_00", "BM14", "E_Q_EX", "L_BR_FQ", "L_LN_FQ", "L_DN_FQ", "L_OUT_FQ", "LS_VEG1", "LS_VEG2", "LS_FRUIT", "LS_1YR", "LK_EDU", "LK_LB_CO", "N_DIET", "N_DUSUAL", "N_WAT_C", "LF_SAFE"
-		- https://knhanes.kdca.go.kr/knhanes/main.do 링크된 사이트의 변수설명 페이지에 80개의 변수명과 매칭되는 정보 확인 가능
+		- 설문 진행은 80개의 변수명("sex", "age", "cfam", "genertn", "house", "live_t", "marri_1", "fam_rela", "tins", "npins", "D_1_1", "D_2_1", "M_2_yr", "BH9_11", "BH1", "BH2_61", "LQ4_00", "LQ1_sb", "LQ2_ab", "AC1_yr", "MH1_yr", "MO1_wk", "educ", "EC1_1", "EC_lgw_2", "BO1", "BO1_1", "BO2_1", "BD1_11", "BD2_1", "BD2_31", "BD7_4", "BD7_5", "BA2_12", "BA2_13", "BA2_14", "BP1", "BP7", "BS1_1", "BS12_37", "BS12_1", "BS8_2", "BS9_2", "BS13", "BE3_71", "BE3_81", "BE3_91", "BE3_75", "BE3_85", "BE8_1", "BE3_31", "BE5_1", "HE_fh", "HE_ht", "HE_wt", "HE_wc", "OR1", "O_pain", "O_ortho", "BM1_0", "BM7", "BM8", "OR1_2", "MO4_00", "BM14", "E_Q_EX", "L_BR_FQ", "L_LN_FQ", "L_DN_FQ", "L_OUT_FQ", "LS_VEG1", "LS_VEG2", "LS_FRUIT", "LS_1YR", "LK_EDU", "LK_LB_CO", "N_DIET", "N_DUSUAL", "N_WAT_C", "LF_SAFE")과 매칭되는 문항 순서로 진행 
+		- 국민건강영양조사(https://knhanes.kdca.go.kr/knhanes/main.do) 사이트의 변수설명 페이지에서 80개의 변수명과 매칭되는 정보 확인 가능
 		- 설문을 모두 완료하면, 만성질환 분석 요청 가능
 		- 분석 결과는 대시보드 페이지에서 확인 가능
 	4) 만성질환 분석 진행 과정

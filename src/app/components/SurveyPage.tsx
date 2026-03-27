@@ -107,10 +107,13 @@ export function SurveyPage() {
     setSubmitting(true);
     try {
       const API_BASE = import.meta.env.VITE_API_URL ?? "";
+      const accessToken = sessionStorage.getItem("access_token") ?? "";
+      const authHeader = { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` };
+
       // 1) 태스크 제출
       const submitRes = await fetch(`${API_BASE}/api/v1/prediction/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeader,
         body: JSON.stringify({ survey_data: answers }),
       });
       if (!submitRes.ok) throw new Error("예측 요청 실패");
@@ -120,7 +123,9 @@ export function SurveyPage() {
       let result = null;
       for (let i = 0; i < 30; i++) {
         await new Promise((r) => setTimeout(r, 2000));
-        const pollRes = await fetch(`${API_BASE}/api/v1/prediction/${task_id}`);
+        const pollRes = await fetch(`${API_BASE}/api/v1/prediction/${task_id}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
         if (!pollRes.ok) continue;
         const data = await pollRes.json();
         if (data.status === "completed") { result = data.result; break; }

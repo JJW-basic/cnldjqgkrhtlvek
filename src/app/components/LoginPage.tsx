@@ -1,12 +1,17 @@
 import { useNavigate } from "react-router";
 import { Shield, Lock } from "lucide-react";
 
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
 export function LoginPage() {
   const navigate = useNavigate();
 
-  const handleLogin = (provider: string) => {
-    // Mock OAuth: 실제로는 Kakao/Naver OAuth → FastAPI JWT 발행
-    navigate("/services");
+  const handleKakaoLogin = () => {
+    window.location.href = `${API_BASE}/api/v1/auth/kakao/login`;
+  };
+
+  const handleNaverLogin = () => {
+    window.location.href = `${API_BASE}/api/v1/auth/naver/login`;
   };
 
   return (
@@ -27,7 +32,7 @@ export function LoginPage() {
 
           <div className="space-y-3 mb-6">
             <button
-              onClick={() => handleLogin("kakao")}
+              onClick={handleKakaoLogin}
               className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
               style={{ backgroundColor: "#FEE500", color: "#191919", fontWeight: 600 }}
             >
@@ -35,7 +40,7 @@ export function LoginPage() {
               카카오 로그인
             </button>
             <button
-              onClick={() => handleLogin("naver")}
+              onClick={handleNaverLogin}
               className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
               style={{ backgroundColor: "#03C75A", color: "#fff", fontWeight: 600 }}
             >

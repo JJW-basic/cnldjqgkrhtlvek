@@ -1,13 +1,11 @@
 from pydantic import BaseModel
 
 
-class OAuthCallbackRequest(BaseModel):
-    code: str
-    state: str | None = None
-
-
 class OAuthLoginResponse(BaseModel):
     access_token: str
+    provider: str
+    sub: str
 
 
-class TokenRefreshResponse(OAuthLoginResponse): ...
+class TokenRefreshResponse(BaseModel):
+    access_token: str

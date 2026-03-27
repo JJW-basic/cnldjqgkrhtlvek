@@ -8,6 +8,12 @@ export function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const isLogin = location.pathname === "/";
 
+  const handleLogout = () => {
+    sessionStorage.removeItem("access_token");
+    sessionStorage.removeItem("auth_provider");
+    navigate("/");
+  };
+
   if (isLogin) return <Outlet />;
 
   return (
@@ -41,7 +47,7 @@ export function Layout() {
           </nav>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => navigate("/")}
+              onClick={handleLogout}
               className="hidden md:flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"
             >
               <LogOut className="w-4 h-4" />
@@ -68,7 +74,7 @@ export function Layout() {
               </button>
             ))}
             <button
-              onClick={() => navigate("/")}
+              onClick={() => { handleLogout(); setMenuOpen(false); }}
               className="w-full text-left px-3 py-2 rounded-lg text-red-500 hover:bg-red-50"
             >
               로그아웃
