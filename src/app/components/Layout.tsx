@@ -1,20 +1,32 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
-import { Heart, LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import { useState } from "react";
+import { apiFetch } from "../lib/apiClient";
+import { clearToken } from "../lib/tokenStore";
+
+// 헤더 없이 렌더링할 경로 (로그인, OAuth 콜백)
+const NO_HEADER_PREFIXES = ["/oauth/callback"];
+
+function isNoHeaderPath(pathname: string): boolean {
+  return pathname === "/" || NO_HEADER_PREFIXES.some((p) => pathname.startsWith(p));
+}
 
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const isLogin = location.pathname === "/";
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("access_token");
-    sessionStorage.removeItem("auth_provider");
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      await apiFetch("/api/v1/auth/logout", { method: "POST" });
+    } finally {
+      clearToken();
+      navigate("/", { replace: true });
+    }
   };
 
-  if (isLogin) return <Outlet />;
+  // 헤더 없는 경로(로그인, OAuth 콜백)는 바로 렌더링
+  if (isNoHeaderPath(location.pathname)) return <Outlet />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">

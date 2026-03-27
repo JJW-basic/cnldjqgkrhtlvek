@@ -72,6 +72,7 @@ async def kakao_callback(
             access_token=str(access_token),
             provider="kakao",
             sub=kakao_id,
+            expires_in=config.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         ).model_dump(),
         status_code=status.HTTP_200_OK,
     )
@@ -163,6 +164,7 @@ async def naver_callback(
             access_token=str(access_token),
             provider="naver",
             sub=naver_id,
+            expires_in=config.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         ).model_dump(),
         status_code=status.HTTP_200_OK,
     )
@@ -187,6 +189,17 @@ async def token_refresh(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token is missing.")
     access_token = jwt_service.refresh_jwt(refresh_token)
     return Response(
-        content=TokenRefreshResponse(access_token=str(access_token)).model_dump(),
+        content=TokenRefreshResponse(
+            access_token=str(access_token),
+            expires_in=config.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        ).model_dump(),
         status_code=status.HTTP_200_OK,
     )
+
+
+# ── 로그아웃 ────────────────────────────────────────────────────────────────────
+@auth_router.post("/logout", status_code=status.HTTP_200_OK)
+async def logout() -> Response:
+    resp = Response(content={"detail": "로그아웃 되었습니다."}, status_code=status.HTTP_200_OK)
+    resp.delete_cookie(key="refresh_token", httponly=True, samesite="lax")
+    return resp

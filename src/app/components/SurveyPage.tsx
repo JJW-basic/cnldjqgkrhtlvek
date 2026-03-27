@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { ChevronLeft, ChevronRight, Check, Send, Zap, FlaskConical, Save, RotateCcw, Trophy, Target, Flame, Star, PartyPopper } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { surveySections, SurveyQuestion, healthyMaleDummyData } from "./surveyData";
+import { apiFetch } from "../lib/apiClient";
 
 const STORAGE_KEY = "survey_autosave";
 const SECTION_KEY = "survey_section";
@@ -106,14 +107,10 @@ export function SurveyPage() {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const API_BASE = import.meta.env.VITE_API_URL ?? "";
-      const accessToken = sessionStorage.getItem("access_token") ?? "";
-      const authHeader = { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` };
-
       // 1) 태스크 제출
-      const submitRes = await fetch(`${API_BASE}/api/v1/prediction/`, {
+      const submitRes = await apiFetch("/api/v1/prediction/", {
         method: "POST",
-        headers: authHeader,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ survey_data: answers }),
       });
       if (!submitRes.ok) throw new Error("예측 요청 실패");
@@ -123,9 +120,7 @@ export function SurveyPage() {
       let result = null;
       for (let i = 0; i < 30; i++) {
         await new Promise((r) => setTimeout(r, 2000));
-        const pollRes = await fetch(`${API_BASE}/api/v1/prediction/${task_id}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
+        const pollRes = await apiFetch(`/api/v1/prediction/${task_id}`);
         if (!pollRes.ok) continue;
         const data = await pollRes.json();
         if (data.status === "completed") { result = data.result; break; }

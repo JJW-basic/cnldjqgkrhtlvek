@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
+import { setToken } from "../lib/tokenStore";
 
 /**
  * 카카오/네이버 OAuth 인가 코드를 받아 FastAPI 콜백 엔드포인트로 전달하고
@@ -34,12 +33,13 @@ export function OAuthCallbackPage() {
         const query = new URLSearchParams({ code });
         if (state) query.set("state", state);
 
-        const res = await fetch(`${API_BASE}/api/v1/auth/${provider}/callback?${query.toString()}`);
+        const res = await fetch(`/api/v1/auth/${provider}/callback?${query.toString()}`, {
+          credentials: "include",
+        });
         if (!res.ok) throw new Error("인증 실패");
 
         const data = await res.json();
-        sessionStorage.setItem("access_token", data.access_token);
-        sessionStorage.setItem("auth_provider", data.provider);
+        setToken(data.access_token, data.provider, data.expires_in);
         navigate("/services", { replace: true });
       } catch {
         navigate("/", { replace: true });
