@@ -1,21 +1,19 @@
-import { Navigate, Outlet, useNavigate } from "react-router";
-import { useAuth } from "../lib/useAuth";
+import { Navigate, Outlet } from "react-router";
+import { useAuthContext } from "../lib/AuthContext";
 import { useIdleLogout } from "../lib/useIdleLogout";
 import { getExpiresInMs } from "../lib/tokenStore";
 
-const Spinner = () => (
-  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center">
-    <div className="w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin" />
-  </div>
-);
-
+/**
+ * ProtectedLayout — 인증된 사용자 전용 라우트 가드.
+ *
+ * - authenticated  → 서비스 페이지 렌더링 + 유휴 로그아웃 타이머 활성화
+ * - unauthenticated → / 강제 리다이렉트 (서비스 접근 차단)
+ */
 export function ProtectedLayout() {
-  const navigate = useNavigate();
-  const authState = useAuth();
+  const { authState, logout } = useAuthContext();
 
-  useIdleLogout(() => navigate("/", { replace: true }), getExpiresInMs());
+  useIdleLogout(getExpiresInMs(), logout);
 
-  if (authState === "loading") return <Spinner />;
   if (authState === "unauthenticated") return <Navigate to="/" replace />;
   return <Outlet />;
 }

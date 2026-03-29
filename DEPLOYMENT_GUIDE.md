@@ -1,316 +1,355 @@
-# 배포 가이드라인
+# DEPLOYMENT GUIDE
 
-## 1. 로컬 테스트 가이드라인
+만성질환 예측 AI 서비스 — 로컬 테스트 및 AWS 배포 가이드
 
-### 사전 준비
-- Docker Desktop 실행 확인
-- Node.js 20+ 설치 확인
-- 카카오/네이버 개발자 콘솔에서 앱 등록 및 Redirect URI 설정
+---
 
-### Step 1 — OAuth 앱 등록 (카카오/네이버)
+## 인증 아키텍처 개요
 
-#### 카카오
-1. [카카오 개발자 콘솔](https://developers.kakao.com) → 내 애플리케이션 → 앱 추가
-2. 플랫폼 → Web → 사이트 도메인: `http://localhost`
-3. 카카오 로그인 → 활성화 ON
-4. Redirect URI 등록: `http://localhost/oauth/callback/kakao`
-5. 앱 키 → REST API 키 복사
+### 토큰 발행 조건 (3가지 모두 충족 필요)
 
-#### 네이버
-1. [네이버 개발자 센터](https://developers.naver.com) → Application → 애플리케이션 등록
-2. 사용 API: 네이버 로그인 선택
-3. 서비스 URL: `http://localhost`
-4. Callback URL: `http://localhost/oauth/callback/naver`
-5. Client ID / Client Secret 복사
+| 조건 | 내용 |
+|------|------|
+| 1 | 로그인 페이지의 카카오/네이버 인증 버튼 클릭 |
+| 2 | OAuth API 인증 통과 + **본인인증 완료 계정** 검증 통과 |
+| 3 | 동의 페이지(`/consent`)에서 사용자 동의 확인 |
 
-### Step 2 — 환경 변수 설정
+### 본인인증 검증 필드
 
-`.env` 파일에서 OAuth 키 값을 실제 발급받은 값으로 교체:
+**카카오** — `is_certified_needs_agreement` 키 존재 여부에 따라 조건부 검증:
 
-```env
-KAKAO_CLIENT_ID=<카카오 REST API 키>
-KAKAO_CLIENT_SECRET=<카카오 Client Secret>
-KAKAO_REDIRECT_URI=http://localhost/oauth/callback/kakao
+| 상황 | 동작 |
+|------|------|
+| `is_certified_needs_agreement` 키가 응답에 없음 | 앱 동의항목 미설정 → 검증 건너뜀 (id만으로 통과) |
+| `is_certified_needs_agreement = true` | 사용자 동의 거부 → HTTP 403 |
+| `is_certified_needs_agreement = false` + `is_certified = true` + `certified_at` 존재 | 본인인증 완료 → 통과 |
+| `is_certified_needs_agreement = false` + `is_certified = false` | 본인인증 미완료 → HTTP 403 |
 
-NAVER_CLIENT_ID=<네이버 Client ID>
-NAVER_CLIENT_SECRET=<네이버 Client Secret>
-NAVER_REDIRECT_URI=http://localhost/oauth/callback/naver
+- 앱 동의항목에 본인인증 항목 설정 시 실제 검증 활성화
+- 미통과 시: HTTP 403 + 안내 메시지 → ConsentPage 차단 화면
 
-SECRET_KEY=<강력한 랜덤 문자열>
+**네이버** — `is_certified` 키 존재 여부에 따라 조건부 검증:
+
+| 상황 | 동작 |
+|------|------|
+| `is_certified` 키가 응답에 없음 | 앱 설정 미완료 → 검증 건너뜀 (id만으로 통과) |
+| `is_certified = "true"` | 본인인증 완료 → 통과 |
+| `is_certified = "false"` | 본인인증 미완료 → HTTP 403 |
+
+- 네이버 개발자 센터에서 `본인인증 여부` 제공 정보 설정 시 실제 검증 활성화
+- 미통과 시: HTTP 403 + 안내 메시지 → ConsentPage 차단 화면
+
+### 라우트 접근 제어 매트릭스
+
+| 경로 | 토큰 없음 | 토큰 있음 | 가드 |
+|------|-----------|-----------|------|
+| `/` (로그인) | ✅ 로그인 페이지 | 🔀 `/services` | GuestRoute |
+| `/oauth/callback/:provider` | ✅ → `/consent` 이동 | 🔀 `/services` | 공개 |
+| `/consent` (pending_code 있음) | ✅ 동의 페이지 | 🔀 `/services` | ConsentRoute |
+| `/consent` (pending_code 없음) | 🔀 `/` | 🔀 `/services` | ConsentRoute |
+| `/services`, `/survey` 등 | 🔀 `/` | ✅ 서비스 이용 | ProtectedLayout |
+| `POST /api/v1/prediction/` | ❌ HTTP 401 | ✅ HTTP 202 | get_request_user |
+
+### 인증 흐름
+
+```
+[로그인 페이지 /]
+    ↓ 카카오/네이버 버튼 클릭 (기준 1)
+[OAuth Provider] → 인가 코드 발급
+    ↓ /oauth/callback/:provider
+[OAuthCallbackPage] → 인가 코드 sessionStorage 임시 저장 → /consent 이동
+    ↓ ConsentRoute 가드 통과 (토큰 없음 + pending_code 있음)
+[ConsentPage] → 사용자 동의 확인 (기준 3)
+    ↓ 동의 클릭 → GET /api/v1/auth/{provider}/callback
+[FastAPI] → 본인인증 검증 (기준 2)
+    ├─ 미완료 → HTTP 403 + 사유 → ConsentPage 차단 화면 → 로그인 페이지
+    └─ 완료 → JWT(access) + refresh_token(httpOnly cookie) 발급
+    ↓ login() = setToken() + setAuthState("authenticated") 원자적 처리
+    ↓ ConsentPage useEffect([authState]) → "authenticated" 감지 → navigate("/services")
+[ProtectedLayout] → /services 서비스 이용 (기준 5)
 ```
 
-### Step 3 — React 프론트엔드 빌드
+### 가드 컴포넌트 구조
+
+```
+Layout
+├── GuestRoute          → /         : 토큰 있으면 /services
+├── OAuthCallbackPage   → /oauth/callback/:provider
+├── ConsentRoute        → /consent  : 토큰 있으면 /services, pending_code 없으면 /
+│   └── ConsentPage
+└── ProtectedLayout     → /services, /survey, /dashboard, /ai-model, /tech-stack
+    ├── ServiceSelectionPage  ← 기준 7: 토큰 있는 사용자 기본 페이지
+    ├── SurveyPage
+    ├── DashboardPage
+    ├── AIModelPage
+    └── TechStackPage
+```
+
+---
+
+## 로컬 테스트 가이드라인
+
+### 사전 준비
+
+- Docker Desktop 설치 및 실행
+- Node.js 18+ 설치
+- 카카오/네이버 OAuth 앱 등록
+
+### 1. OAuth 앱 설정
+
+**카카오 개발자 콘솔** (https://developers.kakao.com):
+- 앱 → 카카오 로그인 → 활성화
+- Redirect URI 추가: `http://localhost/oauth/callback/kakao`
+- 동의항목 → `카카오계정(이메일)` 및 본인인증 관련 항목 활성화
+  - `is_certified`, `certified_at`은 기본 `kakao_account` 동의 항목에 포함
+  - 테스트 계정 등록: 앱 → 팀원 관리 → 테스트 계정 추가
+
+**네이버 개발자 센터** (https://developers.naver.com):
+- 애플리케이션 → API 설정 → Callback URL: `http://localhost/oauth/callback/naver`
+- 제공 정보: `본인인증 여부(is_certified)` 포함 확인
+
+### 2. 환경 변수 설정
+
+```bash
+# Windows
+copy envs\example.local.env envs\.local.env
+copy envs\.local.env .env
+```
+
+`envs/.local.env` 필수 항목:
+
+```env
+SECRET_KEY=your-secret-key-here
+KAKAO_CLIENT_ID=your-kakao-client-id
+KAKAO_CLIENT_SECRET=your-kakao-client-secret
+KAKAO_REDIRECT_URI=http://localhost/oauth/callback/kakao
+NAVER_CLIENT_ID=your-naver-client-id
+NAVER_CLIENT_SECRET=your-naver-client-secret
+NAVER_REDIRECT_URI=http://localhost/oauth/callback/naver
+```
+
+### 3. 프론트엔드 빌드
 
 ```bash
 npm install
 npm run build
-# dist/ 폴더 생성됨
 ```
 
-### Step 4 — Docker Compose 전체 스택 실행
+### 4. 전체 스택 실행
 
 ```bash
 docker compose up -d --build
 ```
 
-### Step 5 — 접속 확인
+서비스 접속:
+- 서비스: http://localhost
+- API 문서: http://localhost/api/docs
 
-| 서비스 | URL |
-|---|---|
-| React SPA | http://localhost |
-| FastAPI Swagger | http://localhost/api/docs |
-| 카카오 로그인 | http://localhost/api/v1/auth/kakao/login |
-| 네이버 로그인 | http://localhost/api/v1/auth/naver/login |
+### 5. 엔드포인트 점검
 
----
+```powershell
+# 프론트엔드 (200)
+(Invoke-WebRequest "http://localhost/" -UseBasicParsing).StatusCode
 
-### 인증 시스템 동작 상세
+# API 문서 (200)
+(Invoke-WebRequest "http://localhost/api/openapi.json" -UseBasicParsing).StatusCode
 
-#### 인증 가드 구조 (SRP 적용)
+# 카카오 로그인 시작 (307)
+(Invoke-WebRequest "http://localhost/api/v1/auth/kakao/login" -MaximumRedirection 0 -EA SilentlyContinue).StatusCode
 
-`useAuth` 훅이 모든 인증 로직의 단일 책임을 가지며, `ProtectedLayout`과 `RootRedirect`가 이를 공유합니다.
-인증 관련 로직 추가·수정은 `useAuth.ts` 한 파일만 변경하면 양쪽에 자동 반영됩니다.
+# 인증 없이 예측 요청 (401)
+(Invoke-WebRequest "http://localhost/api/v1/prediction/" -Method POST -ContentType "application/json" -Body "{}" -EA SilentlyContinue).StatusCode
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  useAuth 훅 (인증 로직 단일 책임 허브)                       │
-│  1. 동기 선확인(getTokenSync) → 토큰 있으면 즉시 반환        │
-│  2. 비동기 확인(getToken) → BroadcastChannel 500ms 대기      │
-│  3. 토큰 만료 임박 자동 갱신 → exp 기준 30초 전 실행         │
-│  4. 타 탭 로그아웃(TOKEN_CLEAR) 수신 → 즉시 상태 전환        │
-│  반환값: "loading" | "authenticated" | "unauthenticated"     │
-└──────────────┬──────────────────────────┬───────────────────┘
-               │                          │
-               ▼                          ▼
-┌──────────────────────────┐  ┌───────────────────────────────┐
-│  ProtectedLayout         │  │  RootRedirect (/)             │
-│  - 보호 경로 가드         │  │  - authenticated → /services  │
-│  - 비활동 타이머 시작     │  │  - unauthenticated → 로그인   │
-└──────────────┬───────────┘  └───────────────────────────────┘
-               │ 통과
-┌──────────────▼──────────────────────────────────────────────┐
-│  FastAPI Depends(get_request_user) (서버 검증)               │
-│  - JWT Bearer 토큰 서명/만료 검증 → 실패 시 HTTP 401         │
-└─────────────────────────────────────────────────────────────┘
+# 쿠키 없이 토큰 갱신 (401)
+(Invoke-WebRequest "http://localhost/api/v1/auth/token/refresh" -EA SilentlyContinue).StatusCode
 
-Layout 역할: 헤더 표시 분기만 담당 (/, /oauth/callback/* → 헤더 없음)
+# 로그아웃 (200)
+(Invoke-WebRequest "http://localhost/api/v1/auth/logout" -Method POST -UseBasicParsing).StatusCode
 ```
 
-#### 경로별 접근 제어 매트릭스
+### 6. 인증 흐름 수동 테스트 시나리오
 
-| 경로 | 토큰 없음 | 토큰 있음 |
-|---|---|---|
-| `/` (루트) | 로그인 페이지 표시 | `/services`로 자동 이동 |
-| `/oauth/callback/:provider` | 허용 (OAuth 처리 중) | 허용 (OAuth 처리 중) |
-| `/services`, `/survey`, `/dashboard`, `/ai-model`, `/tech-stack` | `/`로 리다이렉트 | 서비스 정상 접근 |
-| 새 탭에서 보호 경로 직접 접근 | `/`로 리다이렉트 | BroadcastChannel 토큰 수신 후 정상 접근 |
-| `/api/v1/prediction/*` | HTTP 401 반환 | 정상 처리 |
+**정상 흐름 (본인인증 완료 계정):**
+1. http://localhost 접속 → 로그인 페이지 확인
+2. 카카오/네이버 로그인 버튼 클릭 → OAuth 인증
+3. `/consent` 자동 이동 확인
+4. "동의하고 시작하기" 클릭 → `/services` 이동 확인
+5. 주소창에 `http://localhost/` 입력 → `/services` 즉시 리다이렉트 (로그인 페이지 노출 없음)
+6. 주소창에 `http://localhost/consent` 직접 입력 → `/services` 리다이렉트 (토큰 있으므로)
+7. 로그아웃 → 로그인 페이지 이동 + sessionStorage 토큰 삭제 확인
 
-#### 전체 로그인 흐름
+**본인인증 미완료 차단 흐름:**
+1. 본인인증 미완료 계정으로 로그인 시도
+2. `/consent`에서 "동의하고 시작하기" 클릭
+3. 차단 화면 표시 확인:
+   - 카카오: "본인인증을 완료한 카카오 계정만 이용할 수 있습니다. 카카오 계정 설정 → 보안 → 본인인증을 완료한 후 다시 시도해 주세요."
+   - 네이버: "본인인증을 완료한 네이버 계정만 이용할 수 있습니다. 네이버 계정 설정 → 보안 → 본인인증을 완료한 후 다시 시도해 주세요."
+4. "로그인 페이지로 돌아가기" 클릭 → `/` 이동 확인
 
-```
-1. http://localhost 접속
-   ├─ 토큰 있음 → /services 자동 이동 (RootRedirect)
-   └─ 토큰 없음 → 로그인 페이지 표시
+**직접 URL 접근 차단 흐름:**
+1. 로그아웃 상태에서 `http://localhost/services` 직접 입력 → `/` 리다이렉트
+2. 로그아웃 상태에서 `http://localhost/consent` 직접 입력 → `/` 리다이렉트 (pending_code 없음)
+3. 로그인 상태에서 `http://localhost/consent` 직접 입력 → `/services` 리다이렉트
 
-2. 카카오/네이버 버튼 클릭
-   → /api/v1/auth/{provider}/login → 307 redirect → OAuth 로그인 페이지
-
-3. 사용자 동의 → redirect_uri로 인가 코드 전달
-   - 카카오: http://localhost/oauth/callback/kakao?code=...
-   - 네이버: http://localhost/oauth/callback/naver?code=...&state=...
-
-4. OAuthCallbackPage → /api/v1/auth/{provider}/callback 호출
-   → FastAPI: 토큰 교환 → 사용자 ID 조회 → 내부 JWT 발급
-   → access_token + expires_in: tokenStore(sessionStorage) 저장
-   → refresh_token: HttpOnly Cookie (서버 발급)
-
-5. /services 페이지로 이동
-```
-
-#### 토큰 저장 전략 (tokenStore.ts)
-
-```
-저장소: sessionStorage
-  - 탭/브라우저 종료 시 자동 소멸 (보안)
-  - 탭 간 공유: BroadcastChannel API 활용
-
-탭 간 동기화 흐름:
-  새 탭 오픈 → ProtectedLayout 마운트
-  → TOKEN_REQUEST 브로드캐스트
-  → 기존 탭이 TOKEN_RESPONSE로 토큰 + expires_in 전달 (최대 500ms 대기)
-  → 새 탭 sessionStorage에 저장 → 서비스 정상 접근
-
-로그아웃 시:
-  → TOKEN_CLEAR 브로드캐스트 → 모든 탭 sessionStorage 동시 초기화
-```
-
-#### access_token 자동 갱신 (apiClient.ts)
-
-```
-API 호출 → 401 응답 수신
-→ GET /api/v1/auth/token/refresh (HttpOnly Cookie의 refresh_token 사용)
-→ 성공: 새 access_token + expires_in을 tokenStore에 저장 → 원래 요청 재시도
-→ 실패(refresh_token 만료): tokenStore.clearToken() → / 강제 이동
-
-동시 다중 요청 시: refreshQueue 패턴으로 중복 갱신 방지
-```
-
-#### 비활동 자동 로그아웃 (useIdleLogout.ts)
-
-```
-감지 이벤트: mousedown, keydown, touchstart, scroll, click
-
-비활동 타이머 기준값: 서버 응답의 expires_in(초) → ms 변환
-  - 로그인/토큰 갱신 응답에 expires_in 포함 → tokenStore에 저장
-  - ProtectedLayout이 getExpiresInMs()로 읽어 useIdleLogout에 전달
-  - 서버의 ACCESS_TOKEN_EXPIRE_MINUTES 변경 시 프론트엔드 코드 수정 불필요
-
-활동 감지 시:
-  → 비활동 타이머 리셋 (expires_in ms)
-  → 5분 쿨다운 내 서버 토큰 갱신 (활동 중 만료 방지)
-  → 갱신 응답의 expires_in도 tokenStore에 업데이트
-
-비활동 expires_in 경과 시:
-  → tokenStore.clearToken() (모든 탭 토큰 삭제)
-  → POST /api/v1/auth/logout (서버 쿠키 삭제)
-  → / (로그인 페이지)로 이동
-```
-
-#### 로그아웃 흐름
-
-```
-로그아웃 버튼 클릭
-→ POST /api/v1/auth/logout (서버: refresh_token 쿠키 Max-Age=0 삭제)
-→ tokenStore.clearToken() (현재 탭 sessionStorage 삭제 + 모든 탭에 TOKEN_CLEAR 브로드캐스트)
-→ / (로그인 페이지)로 이동
-```
-
----
-
-### 로컬 개발 (핫리로드)
+### 7. 로그 확인
 
 ```bash
-# 터미널 1: Redis + AI Worker만 Docker로 실행
-docker compose up -d redis ai-worker
-
-# 터미널 2: FastAPI 로컬 실행
-uv sync --group app
-uv run uvicorn app.main:app --reload
-
-# 터미널 3: React 개발 서버
-npm run dev
-# http://localhost:5173 접속
+docker compose ps
+docker compose logs -f fastapi
+docker compose logs -f ai-worker
 ```
 
-> **로컬 개발 시 OAuth Redirect URI 주의**: 카카오/네이버 콘솔에 `http://localhost:5173/oauth/callback/{provider}`도 추가 등록 필요.
+### 8. 개별 서비스 재빌드
+
+```bash
+# FastAPI 코드 변경 후
+docker compose up -d --build fastapi
+docker compose restart nginx
+
+# 프론트엔드 변경 후
+npm run build
+docker compose restart nginx
+```
 
 ---
 
-## 2. AWS 배포 가이드라인 (무료 티어 기준)
+## AWS 배포 가이드라인
 
-### 무료 티어 구성 (12개월)
+### 사전 준비
 
-| 서비스 | 스펙 | 용도 |
-|---|---|---|
-| EC2 t2.micro | 1vCPU / 1GB RAM | 전체 서비스 실행 |
-| S3 (선택) | 5GB | React 정적 파일 (CloudFront 연동 시) |
+- AWS EC2 인스턴스 (Ubuntu 22.04 LTS, t3.medium 이상 권장)
+- EC2 보안 그룹 인바운드: 22(SSH), 80(HTTP), 443(HTTPS)
+- Docker Hub 계정 + Personal Access Token (PAT)
+- 도메인 (Route53, Gabia, GoDaddy 등)
+- SSH 키 페어 (`~/.ssh/` 경로)
 
-> ⚠️ **리스크**: t2.micro 1GB RAM은 PyTorch 모델 로딩 시 OOM 발생 가능. Swap 2GB 추가 필수.
-
-### Step 1 — EC2 인스턴스 생성
-
-1. AWS Console → EC2 → 인스턴스 시작
-2. AMI: **Ubuntu 22.04 LTS** 선택
-3. 인스턴스 유형: **t2.micro** (프리 티어)
-4. 보안 그룹 인바운드 규칙:
-
-| 포트 | 프로토콜 | 소스 | 용도 |
-|---|---|---|---|
-| 22 | TCP | 내 IP | SSH |
-| 80 | TCP | 0.0.0.0/0 | HTTP |
-| 443 | TCP | 0.0.0.0/0 | HTTPS (SSL 적용 시) |
-
-### Step 2 — EC2 초기 설정
+### 1. EC2 초기 설정
 
 ```bash
 ssh -i ~/.ssh/your-key.pem ubuntu@<EC2_IP>
 
-# Docker 설치
-sudo apt update && sudo apt install -y docker.io docker-compose-plugin
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose-plugin
+sudo systemctl enable --now docker
 sudo usermod -aG docker ubuntu
-# 재접속 후 적용
+newgrp docker
 
-# Swap 메모리 추가 (t2.micro OOM 방지)
-sudo fallocate -l 2G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+docker --version && docker compose version
 ```
 
-### Step 3 — OAuth 앱 Redirect URI 프로덕션 등록
+### 2. OAuth 앱 Redirect URI 업데이트
 
-배포 도메인이 확정되면 카카오/네이버 콘솔에서 Redirect URI 추가:
-- 카카오: `https://yourdomain.com/oauth/callback/kakao`
-- 네이버: `https://yourdomain.com/oauth/callback/naver`
+**카카오**: `https://yourdomain.com/oauth/callback/kakao`
+**네이버**: `https://yourdomain.com/oauth/callback/naver`
 
-### Step 4 — 코드 배포 및 환경 변수 설정
+### 3. 프로덕션 환경 변수 설정
+
+`envs/.prod.env`:
+
+```env
+ENV=prod
+SECRET_KEY=your-strong-secret-key-min-32-chars
+COOKIE_DOMAIN=yourdomain.com
+
+KAKAO_CLIENT_ID=your-kakao-client-id
+KAKAO_CLIENT_SECRET=your-kakao-client-secret
+KAKAO_REDIRECT_URI=https://yourdomain.com/oauth/callback/kakao
+
+NAVER_CLIENT_ID=your-naver-client-id
+NAVER_CLIENT_SECRET=your-naver-client-secret
+NAVER_REDIRECT_URI=https://yourdomain.com/oauth/callback/naver
+
+REDIS_HOST=redis
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+REFRESH_TOKEN_EXPIRE_MINUTES=20160
+```
+
+### 4. 프론트엔드 프로덕션 빌드
 
 ```bash
-git clone https://github.com/<your-repo>.git
-cd AI_HealthCare_Final_Project_Template
-
-# .env 수정 (프로덕션 값으로 교체)
-cp envs/example.prod.env .env
-nano .env
-# REDIS_HOST=redis
-# SECRET_KEY=<강력한 랜덤 키>
-# KAKAO_REDIRECT_URI=https://yourdomain.com/oauth/callback/kakao
-# NAVER_REDIRECT_URI=https://yourdomain.com/oauth/callback/naver
-
-# React 빌드
-npm install && npm run build
-
-# 전체 스택 실행
-docker compose up -d --build
+npm run build
 ```
 
-### Step 5 — 도메인 + HTTPS 설정
-
-```bash
-# 1. 도메인 구매 후 EC2 IP로 A 레코드 설정
-# 2. nginx/prod_https.conf의 server_name을 도메인으로 변경
-# 3. Certbot 스크립트 실행
-chmod +x scripts/certbot.sh
-./scripts/certbot.sh
-```
-
-> HTTPS 적용 후 `app/apis/v1/auth_routers.py`의 `set_cookie` 호출에서 `secure=False` → `secure=True`로 변경 필수.
-
-### Step 6 — 자동 배포 스크립트
+### 5. 자동 배포 스크립트
 
 ```bash
 chmod +x scripts/deployment.sh
 ./scripts/deployment.sh
-# 프롬프트: Docker Hub 계정, 레포지토리명, 버전 태그, SSH 키, EC2 IP 순서로 입력
+```
+
+입력 항목:
+1. Docker Hub Username
+2. Docker Hub PAT
+3. Repository 이름
+4. 배포 서비스 (FastAPI / AI-Worker)
+5. 버전 태그 (예: `v1.0.0`)
+6. SSH 키 파일명
+7. EC2 Public IP
+8. HTTPS 사용 여부 → 도메인 입력
+
+### 6. SSL/HTTPS 설정
+
+```bash
+chmod +x scripts/certbot.sh
+./scripts/certbot.sh
+```
+
+입력 항목:
+1. 도메인 (예: `yourdomain.com`)
+2. 이메일
+3. SSH 키 파일명
+4. EC2 Public IP
+
+### 7. 배포 후 확인
+
+```bash
+docker compose ps
+
+curl -o /dev/null -w "%{http_code}" https://yourdomain.com/
+curl -o /dev/null -w "%{http_code}" https://yourdomain.com/api/openapi.json
+curl -o /dev/null -w "%{http_code}" -L https://yourdomain.com/api/v1/auth/kakao/login
 ```
 
 ---
 
-## 주의 사항
+## 트러블슈팅
 
-### 잠재적 리스크
-BroadcastChannel은 동일 브라우저 내 탭 간에만 동작 — 서로 다른 브라우저(Chrome/Firefox)에서 동시 로그인 시 토큰이 공유되지 않으며, 각 브라우저에서 독립적으로 OAuth 인증이 필요하다.
+### Nginx 502 Bad Gateway
 
-### 권장 사항 (Best Practice)
-- 프로덕션 배포 전 `.env`의 `SECRET_KEY`를 반드시 강력한 랜덤 값으로 교체
-- HTTPS 적용 후 `auth_routers.py`의 `set_cookie(secure=False)` → `secure=True`로 변경
-- 카카오/네이버 콘솔에서 Redirect URI를 배포 도메인으로 정확히 등록 (불일치 시 OAuth 오류 발생)
-- 비활동 타이머는 서버 응답의 `expires_in` 값을 자동으로 사용 — `ACCESS_TOKEN_EXPIRE_MINUTES` 변경 시 프론트엔드 코드 수정 불필요
-- AI Worker `restart: always` 설정으로 크래시 시 자동 복구됨
+FastAPI 컨테이너 재생성 후 Nginx DNS 캐시 문제:
 
-### 현재 제한 사항 (Current Limitations)
-- 테스트 모드 "바로 분석" 버튼은 mock 결과 사용 — 실제 AI 추론 필요 시 `handleSubmit`과 동일한 폴링 패턴 적용
-- BroadcastChannel은 IE 미지원 — 대상 브라우저가 Chrome/Firefox/Safari 최신 버전이면 문제 없음
-- refresh_token 만료(14일) 후에는 재로그인 필요
+```bash
+docker compose restart nginx
+```
+
+### 카카오 본인인증 검증 실패
+
+- 카카오 개발자 콘솔에서 동의항목에 본인인증 항목을 설정하지 않으면 `is_certified_needs_agreement` 키가 응답에 없음 → 검증 건너뜀
+- 동의항목 설정 후 `needs_agreement=true`이면 사용자가 동의 거부한 것 → HTTP 403
+- `is_certified=false`이면 실제 본인인증 미완료 → HTTP 403
+
+### 네이버 본인인증 검증 실패
+
+- 네이버 개발자 센터 → 앱 → API 설정 → 제공 정보에 `본인인증 여부` 체크 필요
+- `is_certified` 필드는 문자열 `"true"`/`"false"`로 반환됨 (boolean 아님)
+
+### OAuth state 만료 오류 (네이버)
+
+Redis TTL 5분 초과 시 발생. 로그인 페이지에서 다시 시도.
+
+### sessionStorage 토큰 미저장
+
+- 동일 탭에서만 유효 (새 탭 = 재로그인 필요 — 설계 의도)
+- 브라우저 종료 시 자동 소멸
+
+---
+
+## 보안 체크리스트
+
+- [ ] `SECRET_KEY` 프로덕션 전용 강력한 값 (32자 이상 랜덤)
+- [ ] `ENV=prod` 설정 → `secure=True` 쿠키 자동 적용
+- [ ] OAuth Redirect URI HTTPS로 업데이트
+- [ ] EC2 보안 그룹 최소 권한 원칙 적용
+- [ ] Redis 포트(6379) 외부 노출 차단 (프로덕션 docker-compose에서 `ports` 제거)
+- [ ] Docker Hub 이미지 프라이빗 설정 권장
+- [ ] 네이버 앱 제공 정보에 `본인인증 여부(is_certified)` 포함 확인

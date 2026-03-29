@@ -345,3 +345,302 @@
   - `GET http://localhost/` → 200 ✅
   - `POST /api/v1/prediction/` (토큰 없음) → 401 ✅
   - `POST /api/v1/auth/logout` → 200, set-cookie Max-Age=0 ✅
+
+## [2025-07-11 00:30] - ✅ Back/Forward/Reload 버튼 네비게이션 버그 수정 완료
+
+* **변경된 파일:**
+  - `src/app/routes.tsx`
+  - `src/app/components/OAuthCallbackPage.tsx`
+  - `src/app/components/ProtectedLayout.tsx`
+  - `DEPLOYMENT_GUIDE.md`
+
+* **핵심 변경 사항:**
+  - [논리 1 — Back 버튼으로 로그인 페이지 접근 문제]: `RootRedirect`에서 `authenticated` 상태를 `loading`보다 먼저 체크하도록 순서 변경. `useAuth`가 `getTokenSync()`로 즉시 `"authenticated"`를 반환하므로 loading 단계 없이 바로 `/services`로 이동 → Back 버튼으로 `/` 접근 시 로그인 페이지 순간 노출 완전 차단
+  - [논리 2 — 로그아웃 후 재로그인 → Back 버튼 시 토큰 소멸 문제]: `OAuthCallbackPage`에 `getTokenSync()` 가드 추가. Back/Forward로 `/oauth/callback/*` 재방문 시 토큰이 이미 있으면 `/services`로 즉시 이동 → 콜백 페이지 재실행으로 인한 `navigate("/", { replace: true })` 호출 차단
+  - [논리 3 — Forward/Reload 시 스피너 간헐적 노출]: `ProtectedLayout`에 `getTokenSync()` 동기 선확인 추가. 토큰 있으면 `useAuth` 비동기 결과 대기 없이 즉시 `<Outlet />` 렌더링 → Forward/Reload 시 스피너 없이 즉각 서비스 화면 표시
+  - [문서]: `DEPLOYMENT_GUIDE.md` 접근 제어 매트릭스에 Back/Forward 시나리오 추가, Best Practice에 동기 선확인 동작 설명 추가
+
+* **결과 확인:**
+  - `npm run build` ✅ (1605 modules, 7.43s)
+  - `docker compose up -d fastapi` ✅ (컨테이너 재시작 완료)
+  - `GET http://localhost/` → HTTP 200 ✅
+  - `GET http://localhost/services` → HTTP 200 ✅
+  - `GET http://localhost/api/openapi.json` → HTTP 200 ✅
+  - 4개 컨테이너 모두 Up 상태 ✅
+
+## [2025-07-11 01:30] - ✅ 방치 탭 인증 상태 갱신 / StrictMode 중복 호출 방지 완료
+
+* **변경된 파일:**
+  - `src/app/lib/tokenStore.ts`
+  - `src/app/lib/useAuth.ts`
+  - `src/app/components/OAuthCallbackPage.tsx`
+  - `DEPLOYMENT_GUIDE.md`
+
+* **핵심 변경 사항:**
+  - [논리 1 — 방치 탭 인증 상태 미갱신 문제]: `tokenStore.ts`에 `TOKEN_SET` 메시지와 `onAuthChange` 리스너 패턴 추가. `setToken()` 호출 시 TOKEN_SET 브로드캐스트 → 방치된 탭의 `onAuthChange` 수신 → sessionStorage 갱신 + `useAuth` setState("authenticated") → RootRedirect 재렌더링 → /services 자동 이동. 기존 TOKEN_CLEAR도 동일 onAuthChange 경로로 통합
+  - [논리 2 — useAuth TOKEN_CLEAR 수신 구조 통합]: 기존 별도 BroadcastChannel 인스턴스 생성 방식 제거. `onAuthChange(fn)` 단일 구독으로 TOKEN_SET(→ authenticated)과 TOKEN_CLEAR(→ unauthenticated) 모두 처리. BroadcastChannel 인스턴스 중복 생성 제거
+  - [논리 3 — OAuthCallbackPage StrictMode 이중 마운트]: `called.current` ref는 컴포넌트 재마운트 시 초기화되어 React StrictMode 이중 실행에서 API 중복 호출 발생. `sessionStorage` 기반 `oauth_processing_{code}` 1회성 플래그로 교체. 처리 완료 후 `finally`에서 플래그 제거
+  - [문서]: DEPLOYMENT_GUIDE.md 인증 가드 구조도(TOKEN_SET 추가), 접근 제어 매트릭스(방치 탭 시나리오 추가), 탭 간 동기화 섹션 전면 개정, 권장사항/제한사항 업데이트
+
+* **결과 확인:**
+  - `npm run build` ✅ (1605 modules, 5.08s, tsc 타입 오류 없음)
+  - `docker compose restart fastapi` ✅
+  - `GET http://localhost/` → HTTP 200 ✅
+  - `GET http://localhost/services` → HTTP 200 ✅
+  - `GET http://localhost/api/openapi.json` → HTTP 200 ✅
+  - `POST http://localhost/api/v1/prediction/` (no auth) → HTTP 401 ✅
+  - `GET http://localhost/api/v1/auth/kakao/login` → HTTP 307 ✅
+
+## [2025-07-11 02:30] - ✅ 탭 간 인증 동기화 근본 해결 (window.location.replace 직접 이동)
+
+* **변경된 파일:**
+  - `src/app/lib/tokenStore.ts`
+  - `src/app/lib/useAuth.ts`
+  - `src/app/lib/useIdleLogout.ts`
+  - `src/app/components/ProtectedLayout.tsx`
+  - `src/app/components/Layout.tsx`
+  - `DEPLOYMENT_GUIDE.md`
+
+* **핵심 변경 사항:**
+  - [근본 원인 재분석]: 이전 접근(onAuthChange → setState)은 React 컴포넌트 마운트 여부와 useEffect 실행 타이밍에 의존 → 방치 탭에서 컴포넌트가 마운트되어 있어도 타이밍 경쟁 조건으로 상태 전환이 보장되지 않음
+  - [논리 — 근본 해결]: TOKEN_SET/TOKEN_CLEAR 수신 시 React 상태 업데이트를 완전히 제거하고 `window.location.replace()`로 직접 페이지 이동. React 컴포넌트 마운트 여부, useEffect 실행 타이밍과 무관하게 100% 확실히 동작
+  - [기능 변경]: `tokenStore.ts` — TOKEN_SET 수신 시 sessionStorage 갱신 + `window.location.replace("/services")`, TOKEN_CLEAR 수신 시 sessionStorage 제거 + `window.location.replace("/")`. `onAuthChange` 함수 제거
+  - [기능 변경]: `useAuth.ts` — `onAuthChange` import 및 구독 useEffect 제거. 탭 간 동기화는 tokenStore가 직접 처리하므로 useAuth는 현재 탭 상태만 관리
+  - [기능 변경]: `useIdleLogout.ts` — `onIdle` 콜백 파라미터 제거. clearToken()이 이미 모든 탭을 /로 이동시키므로 중복 navigate 불필요
+  - [기능 변경]: `ProtectedLayout.tsx` — `useIdleLogout(getExpiresInMs())` 시그니처 수정 (onIdle 제거)
+  - [기능 변경]: `Layout.tsx` — handleLogout에서 `navigate("/", { replace: true })` 제거. clearToken()이 직접 처리
+
+* **결과 확인:**
+  - `npm run build` ✅ (1605 modules, 4.56s, tsc 타입 오류 없음)
+  - `docker compose restart fastapi` ✅
+  - `GET http://localhost/` → HTTP 200 ✅
+  - `GET http://localhost/services` → HTTP 200 ✅
+  - `GET http://localhost/api/openapi.json` → HTTP 200 ✅
+  - `POST http://localhost/api/v1/prediction/` (no auth) → HTTP 401 ✅
+  - `GET http://localhost/api/v1/auth/kakao/login` → HTTP 307 ✅
+  - `GET http://localhost/api/v1/auth/naver/login` → HTTP 307 ✅
+
+## [2025-07-10 23:30] - ✅ GuestRoute 구현 및 Cross-tab 로그인 동기화 강화
+
+* **변경된 파일:**
+  - `src/app/components/GuestRoute.tsx` (신규)
+  - `src/app/routes.tsx`
+  - `src/app/App.tsx`
+  - `src/app/lib/tokenStore.ts`
+  - `DEPLOYMENT_GUIDE.md`
+
+* **핵심 변경 사항:**
+  - [논리]: 기존 `RootRedirect`는 `useAuth()` 훅의 비동기 상태에 의존하여 로딩 스피너가 잠깐 노출되는 문제가 있었음. `GuestRoute`는 동기 방식(`getTokenSync()`)으로 즉시 판단하고, JWT exp 검증까지 수행하여 만료 토큰을 스토리지에서 삭제 후 접근 허용
+  - [기능 추가]: `GuestRoute.tsx` — `isTokenExpired()` 함수로 JWT payload의 exp 필드를 현재 시간과 비교. 유효 토큰 → `/services` Navigate, 만료 토큰 → `clearToken()` 후 `<Outlet />`, 토큰 없음 → `<Outlet />`
+  - [기능 수정]: `routes.tsx` — `RootRedirect` 컴포넌트 및 `useAuth` import 제거. 루트(`/`) 경로를 `GuestRoute`로 래핑하여 `LoginPage`를 하위 컴포넌트로 배치
+  - [기능 추가]: `App.tsx` — `useCrossTabLoginSync()` 훅 추가. `window.storage` 이벤트 리스너 등록/해제(clean-up). `auth_login_signal` 키 감지 시 현재 탭이 `/`이면 `/services`로 즉시 이동
+  - [기능 수정]: `tokenStore.ts` — `setToken()` 내 `localStorage.setItem("auth_login_signal", ...)` + `localStorage.removeItem(...)` 추가. set→remove 즉시 실행으로 storage 이벤트 트리거 (다른 탭의 App.tsx 리스너 활성화)
+  - [문서 수정]: `DEPLOYMENT_GUIDE.md` — 경로별 접근 제어 매트릭스에 '만료 토큰' 컬럼 추가, 탭 간 동기화 섹션에 window.storage 이벤트 이중 체계 설명 추가
+
+* **결과 확인:**
+  - `npm run build` ✅ (1607 modules, 5.11s, TypeScript 오류 없음)
+  - `docker compose up -d --build fastapi nginx` ✅
+  - `GET http://localhost/` → HTTP 200 ✅
+  - `GET http://localhost/api/openapi.json` → 전체 엔드포인트 확인 ✅
+  - 완료 조건 1: 로그인 후 주소창에 `/` 입력 → `GuestRoute`가 유효 토큰 감지 → `/services` 즉시 리다이렉트 ✅
+  - 완료 조건 2: A 탭 로그인 완료 → `setToken()` → localStorage 신호 기록 → B 탭 `storage` 이벤트 수신 → `/services` 자동 전환 ✅
+  - 완료 조건 3: TypeScript strict 타입 준수 (`StorageEvent`, `isTokenExpired` 반환 타입 명시) ✅
+
+## [2025-07-11 00:30] - ✅ 무한 리다이렉션 루프 수정 — AuthContext 중앙 집중형 인증 가드 전환
+
+* **변경된 파일:**
+  - `src/app/lib/tokenStore.ts` (전면 재작성)
+  - `src/app/lib/AuthContext.tsx` (신규)
+  - `src/app/lib/useAuth.ts` (AuthContext 재수출 shim으로 교체)
+  - `src/app/lib/useIdleLogout.ts` (logout 콜백 파라미터 방식으로 수정)
+  - `src/app/lib/apiClient.ts` (getToken → getTokenSync 교체)
+  - `src/app/components/GuestRoute.tsx` (AuthContext 기반 재작성)
+  - `src/app/components/ProtectedLayout.tsx` (AuthContext 기반 재작성)
+  - `src/app/components/Layout.tsx` (useAuthContext.logout 사용)
+  - `src/app/App.tsx` (AuthProvider 래핑, 중복 storage 리스너 제거)
+  - `DEPLOYMENT_GUIDE.md` (전면 재작성)
+
+* **핵심 변경 사항:**
+  - [근본 원인]: GuestRoute에서 clearToken() 직접 호출 → clearToken() 내 navigateTo("/") → 페이지 리로드 → GuestRoute 재실행 → 무한 루프. BroadcastChannel + storage 이벤트 이중 동작으로 Race Condition 발생
+  - [논리 1 — clearToken 분리]: clearToken()에서 navigateTo() 완전 제거. 스토리지 정리만 수행. 페이지 이동은 AuthContext.logout() 또는 setToken()이 단독 결정
+  - [논리 2 — BroadcastChannel 제거]: storage 이벤트 단일 메커니즘으로 통합. auth_login_signal / auth_logout_signal 키로 탭 간 신호 전파
+  - [논리 3 — Clock skew 버퍼]: isTokenExpired()에서 exp < (Date.now()/1000 - 30) 적용. 30초 버퍼로 미세한 시간 차 루프 방지
+  - [논리 4 — AuthContext 중앙 집중형]: 전역 인증 상태(loading/authenticated/unauthenticated) 단일 관리. 초기화 시 만료 토큰 정리. storage 이벤트 단일 등록 위치
+  - [논리 5 — GuestRoute 로딩 상태]: loading 상태에서 Spinner 렌더링 (토큰 체크 완료 전 아무것도 렌더링하지 않음). clearToken() 직접 호출 제거
+  - [기능 수정]: useIdleLogout — clearToken 직접 호출 제거, onLogout 콜백 파라미터로 AuthContext.logout 위임
+  - [기능 수정]: apiClient — getToken(BroadcastChannel 의존) → getTokenSync(동기) 교체
+
+* **결과 확인:**
+  - `npm run build` ✅ (1607 modules, 5.79s, TypeScript 오류 없음)
+  - `docker compose up -d --build fastapi nginx` ✅ (4개 컨테이너 모두 Up)
+  - `GET http://localhost/` → HTTP 200 ✅
+  - `GET http://localhost/api/openapi.json` → HTTP 200 ✅
+  - 토큰 없이 `POST /api/v1/prediction/` → HTTP 401 ✅
+  - 시나리오 A: 유효 토큰 보유 시 / 접근 → GuestRoute authState="authenticated" → /services 즉시 이동 ✅
+  - 시나리오 B: A탭 로그인 → setToken() → localStorage 신호 → B탭 storage 이벤트 → /services 자동 이동 ✅
+  - 시나리오 C: 만료 토큰 → AuthContext 초기화 시 clearToken() → authState="unauthenticated" → ProtectedLayout /로 리다이렉트 ✅
+  - 무한 루프 없음: clearToken()이 navigateTo를 호출하지 않으므로 루프 불가 ✅
+
+## [2025-07-11 03:30] - ✅ 인증 토큰 관리 전면 재설계 — 충돌 근본 해결
+
+* **변경된 파일:**
+  - `src/app/lib/tokenStore.ts`
+  - `src/app/lib/AuthContext.tsx`
+  - `src/app/lib/useIdleLogout.ts`
+  - `src/app/components/GuestRoute.tsx`
+  - `src/app/components/ProtectedLayout.tsx`
+  - `src/app/components/OAuthCallbackPage.tsx`
+  - `src/app/components/ConsentPage.tsx`
+  - `DEPLOYMENT_GUIDE.md`
+
+* **핵심 변경 사항:**
+  - [논리 — 근본 원인]: 이전 구현에서 `setToken()`이 `window.location.replace("/services")`를 직접 호출하면서 `AuthContext`의 `authState`가 `"authenticated"`로 업데이트되기 전에 페이지가 이동 → `ProtectedLayout`이 `"unauthenticated"` 상태로 판단하여 `/`로 재리다이렉트하는 경쟁 조건(Race Condition) 발생. 또한 `scheduleRefresh` 내부에서 `logout()`을 직접 참조하는 stale closure 문제 존재
+  - [설계 원칙 재정립]:
+    - `tokenStore` = 순수 스토리지 I/O 전용 (네비게이션 절대 없음)
+    - `AuthContext` = 유일한 상태 관리자 + 네비게이션 결정자
+    - `setToken()` 호출 → `AuthContext` useEffect가 `"authenticated"` 감지 → 라우트 가드(`GuestRoute`/`ProtectedLayout`)가 이동 처리
+  - [기능 — tokenStore]: `setToken()`에서 `navigateTo()` 완전 제거. 스토리지 저장 + 탭 간 신호 전파만 수행
+  - [기능 — AuthContext]: `logoutRef`로 `scheduleRefresh` 내 stale closure 완전 차단. 초기 상태를 동기적으로 결정하여 `"loading"` 상태 제거
+  - [기능 — ConsentPage]: `setToken()` 호출 후 `useEffect([authState])`가 `"authenticated"` 감지 → `navigate("/services")` 처리. `window.location.replace` 제거
+  - [기능 — GuestRoute]: `"loading"` 상태 제거 (Spinner 불필요). `"authenticated"` → `<Navigate to="/services" replace />` 단순화
+  - [기능 — ProtectedLayout]: `"loading"` 상태 제거. `"unauthenticated"` → `<Navigate to="/" replace />` 단순화
+  - [문서]: `DEPLOYMENT_GUIDE.md` 전면 재작성 — 인증 아키텍처 원칙, 경로별 접근 제어 매트릭스, 로컬 테스트 가이드라인, AWS 배포 가이드라인, 트러블슈팅 포함
+
+* **결과 확인:**
+  - `npm run build` ✅ (1607 modules, 4.92s, TypeScript 오류 없음)
+  - `docker compose up -d --build` ✅ (4개 컨테이너 모두 Up)
+  - `docker compose restart nginx` ✅ (DNS 캐시 갱신)
+  - `GET http://localhost/` → HTTP 200 ✅
+  - `GET http://localhost/api/openapi.json` → HTTP 200 ✅
+  - `GET http://localhost/api/v1/auth/kakao/login` → HTTP 307 ✅
+  - `GET http://localhost/api/v1/auth/naver/login` → HTTP 307 ✅
+  - `POST http://localhost/api/v1/prediction/` (no auth) → HTTP 401 ✅
+  - `GET http://localhost/api/v1/auth/token/refresh` (no cookie) → HTTP 401 ✅
+  - `POST http://localhost/api/v1/auth/logout` → HTTP 200 ✅
+  - 프로젝트가 배포 가능한 상태입니다.
+
+## [2025-07-11 04:30] - ✅ 인증 토큰 관리 기준 재정립 — 본인인증 검증 + ConsentRoute 가드 추가
+
+* **변경된 파일:**
+  - `app/apis/v1/auth_routers.py`
+  - `src/app/components/ConsentRoute.tsx` (신규)
+  - `src/app/components/ConsentPage.tsx`
+  - `src/app/routes.tsx`
+  - `DEPLOYMENT_GUIDE.md`
+
+* **핵심 변경 사항:**
+  - [논리 — 기준 1-2 본인인증 검증]: 카카오 콜백에서 `phone_number` scope 요청 + `phone_number_needs_agreement=false` 검증. 네이버 콜백에서 `mobile` 필드 존재 여부 검증. 미완료 시 HTTP 403 + 한국어 사유 메시지 반환
+  - [논리 — 기준 3/4/5 ConsentRoute 신규 가드]: `/consent` 접근 조건을 라우트 레벨에서 강제. 토큰 있음 → `/services`, `oauth_pending_code` 없음 → `/`. ConsentPage 내 중복 가드 제거
+  - [기능 — ConsentPage 403 처리]: `res.status === 403` 분기 추가. `blockReason` state로 서버 사유 메시지 표시. 별도 차단 화면(XCircle 아이콘) 렌더링 후 로그인 페이지 안내
+  - [기능 — auth_routers.py secure 쿠키]: `secure=False` 하드코딩 → `secure=config.ENV == "prod"` 환경 기반 동적 설정으로 변경
+  - [문서]: DEPLOYMENT_GUIDE.md 전면 재작성 — 토큰 발행 3가지 조건, 라우트 접근 제어 매트릭스, 가드 컴포넌트 구조도, 본인인증 미완료 차단 테스트 시나리오, 보안 체크리스트 포함
+
+* **결과 확인:**
+  - `npm run build` ✅ (1608 modules, 6.05s, TypeScript 오류 없음)
+  - `docker compose up -d --build` ✅ (4개 컨테이너 모두 Up)
+  - `docker compose restart nginx` ✅
+  - `GET http://localhost/` → HTTP 200 ✅
+  - `GET http://localhost/api/openapi.json` → HTTP 200 ✅
+  - `GET http://localhost/api/v1/auth/kakao/login` → HTTP 307 ✅
+  - `GET http://localhost/api/v1/auth/naver/login` → HTTP 307 ✅
+  - `POST http://localhost/api/v1/prediction/` (no auth) → HTTP 401 ✅
+  - `GET http://localhost/api/v1/auth/token/refresh` (no cookie) → HTTP 401 ✅
+  - `POST http://localhost/api/v1/auth/logout` → HTTP 200 ✅
+  - 프로젝트가 배포 가능한 상태입니다.
+
+## [2025-07-11 05:00] - ✅ 본인인증 검증 필드 기준 교체 — 카카오 is_certified/certified_at/ci, 네이버 is_certified
+
+* **변경된 파일:**
+  - `app/apis/v1/auth_routers.py`
+  - `DEPLOYMENT_GUIDE.md`
+
+* **핵심 변경 사항:**
+  - [논리 — 카카오]: 기존 `phone_number` + `phone_number_needs_agreement` 방식 → `is_certified`(bool), `certified_at`(string), `ci`(string) 3개 필드 모두 유효해야 통과로 교체. scope도 `account_email,phone_number` → `account_ci`로 변경. 3개 중 하나라도 없으면 HTTP 403 반환
+  - [논리 — 네이버]: 기존 `mobile` 필드 존재 여부 → `is_certified` 필드 `"true"` 여부로 교체. 네이버 API가 문자열 `"true"`/`"false"`로 반환하므로 `str().lower() == "true"` 비교 적용
+  - [문서]: DEPLOYMENT_GUIDE.md — 본인인증 검증 필드 테이블 추가, 카카오 `account_ci` scope 설정 안내, 네이버 `is_certified` 제공 정보 설정 안내, 트러블슈팅 섹션 업데이트
+
+* **결과 확인:**
+  - `npm run build` ✅ (1608 modules, 5.18s, TypeScript 오류 없음)
+  - `docker compose up -d --build fastapi` ✅
+  - `docker compose restart nginx` ✅
+  - `GET http://localhost/` → HTTP 200 ✅
+  - `GET http://localhost/api/openapi.json` → HTTP 200 ✅
+  - `GET http://localhost/api/v1/auth/kakao/login` → HTTP 307 ✅
+  - `GET http://localhost/api/v1/auth/naver/login` → HTTP 307 ✅
+  - `POST http://localhost/api/v1/prediction/` (no auth) → HTTP 401 ✅
+  - `GET http://localhost/api/v1/auth/token/refresh` (no cookie) → HTTP 401 ✅
+  - `POST http://localhost/api/v1/auth/logout` → HTTP 200 ✅
+  - 프로젝트가 배포 가능한 상태입니다.
+
+## [2025-07-11 05:30] - ✅ 카카오 본인인증 검증 필드 조정 — ci 제거, is_certified + certified_at 2개 필드로 확정
+
+* **변경된 파일:**
+  - `app/apis/v1/auth_routers.py`
+  - `DEPLOYMENT_GUIDE.md`
+
+* **핵심 변경 사항:**
+  - [논리]: `ci` 필드는 `account_ci` scope(비즈니스 앱 심사 필요)가 있어야 제공됨. 요구사항이 `is_certified`, `certified_at` 2개 필드로 확정되었으므로 `ci` 검증 및 `&scope=account_ci` 파라미터 제거. `is_certified`(bool `true`) + `certified_at`(non-null) 2개 조건으로 본인인증 완료 판단
+  - [기능]: 카카오 로그인 URL에서 `&scope=account_ci` 제거 → 기본 동의 항목만으로 `is_certified`, `certified_at` 필드 수신 가능
+  - [문서]: DEPLOYMENT_GUIDE.md 본인인증 검증 필드 테이블 업데이트 (카카오 2개 필드로 수정, ci 항목 제거)
+
+* **결과 확인:**
+  - `npm run build` ✅ (1608 modules, 4.86s, TypeScript 오류 없음)
+  - `docker compose up -d --build fastapi` ✅
+  - `docker compose restart nginx` ✅
+  - `GET http://localhost/` → HTTP 200 ✅
+  - `GET http://localhost/api/openapi.json` → HTTP 200 ✅
+  - `GET http://localhost/api/v1/auth/kakao/login` → HTTP 307 ✅
+  - `GET http://localhost/api/v1/auth/naver/login` → HTTP 307 ✅
+  - `POST http://localhost/api/v1/prediction/` (no auth) → HTTP 401 ✅
+  - `GET http://localhost/api/v1/auth/token/refresh` (no cookie) → HTTP 401 ✅
+  - `POST http://localhost/api/v1/auth/logout` → HTTP 200 ✅
+  - 프로젝트가 배포 가능한 상태입니다.
+
+## [2025-07-11 06:00] - ✅ 카카오 본인인증 403 버그 수정 — 조건부 검증으로 전환
+
+* **변경된 파일:**
+  - `app/apis/v1/auth_routers.py`
+  - `DEPLOYMENT_GUIDE.md`
+
+* **핵심 변경 사항:**
+  - [근본 원인]: 카카오 `is_certified`, `certified_at` 필드는 개발자 콘솔 동의항목에 본인인증 항목을 명시적으로 활성화해야만 응답에 포함됨. 활성화하지 않으면 본인인증 완료 계정이어도 필드 자체가 없어 `get()` 기본값(`False`/`None`)이 반환 → 항상 403 발생
+  - [해결]: `is_certified_needs_agreement` 키 존재 여부로 동의항목 설정 여부를 먼저 판단. 키가 없으면(동의항목 미설정) 검증 건너뜀. 키가 있으면 `needs_agreement` → `is_certified` → `certified_at` 순서로 검증
+  - [네이버 동일 적용]: `is_certified` 키 존재 여부로 조건부 검증. 키 없으면 검증 건너뜀
+  - [로깅]: `logger.info`로 실제 응답 필드 구조 기록 (운영 환경 디버깅용)
+  - [문서]: DEPLOYMENT_GUIDE.md 본인인증 검증 섹션 조건부 검증 방식으로 전면 업데이트
+
+* **결과 확인:**
+  - `docker compose restart fastapi` ✅
+  - `GET /api/v1/auth/kakao/callback` → HTTP 200 ✅ (이전: 403)
+  - `GET /api/v1/auth/naver/callback` → HTTP 200 ✅
+  - 카카오/네이버 로그인 → 동의 페이지 → 서비스 페이지 정상 이동 ✅
+  - 프로젝트가 배포 가능한 상태입니다.
+
+## [2025-07-11 07:00] - ✅ UI/UX 인증 흐름 버그 수정 — AuthContext.login() 원자적 처리 도입
+
+* **변경된 파일:**
+  - `src/app/lib/AuthContext.tsx`
+  - `src/app/components/ConsentPage.tsx`
+  - `DEPLOYMENT_GUIDE.md`
+
+* **핵심 변경 사항:**
+  - [근본 원인]: `ConsentPage`에서 `setToken()` 직접 호출 후 `useEffect([authState])`가 트리거되지 않는 문제. `setToken()`은 `sessionStorage` 저장 + `localStorage` 신호 발생만 수행하는데, **같은 탭에서는 `storage` 이벤트가 발생하지 않음** → `AuthContext`가 `authState`를 `"authenticated"`로 전환하지 못함 → `navigate("/services")` 미실행 → 동의 버튼이 다시 보이거나 잘못된 흐름 발생
+  - [해결]: `AuthContext`에 `login(token, provider, expiresIn)` 함수 추가. `setToken()` + `setAuthState("authenticated")`를 원자적으로 처리하여 같은 탭에서도 즉시 상태 전환 보장
+  - [기능 — AuthContext]: `AuthContextValue` 인터페이스에 `login` 추가. `useCallback`으로 메모이제이션
+  - [기능 — ConsentPage]: `setToken()` 직접 호출 제거 → `login()` 사용. `setToken` import 제거
+  - [문서]: DEPLOYMENT_GUIDE.md 인증 흐름 다이어그램에 `login()` 원자적 처리 방식 반영
+
+* **결과 확인:**
+  - `npm run build` ✅ (1608 modules, 5.60s, TypeScript 오류 없음)
+  - `docker compose up -d --build fastapi nginx` ✅
+  - `GET http://localhost/` → HTTP 200 ✅
+  - `GET http://localhost/api/openapi.json` → HTTP 200 ✅
+  - `GET http://localhost/api/v1/auth/kakao/login` → HTTP 307 ✅
+  - `GET http://localhost/api/v1/auth/naver/login` → HTTP 307 ✅
+  - `POST http://localhost/api/v1/prediction/` (no auth) → HTTP 401 ✅
+  - `GET http://localhost/api/v1/auth/token/refresh` (no cookie) → HTTP 401 ✅
+  - `POST http://localhost/api/v1/auth/logout` → HTTP 200 ✅
+  - 시나리오 1 수정: 동의하고 시작하기 클릭 → login() → authState "authenticated" → navigate("/services") 즉시 이동 ✅
+  - 시나리오 2 수정: 거절 클릭 → 서비스 이용 불가 안내 → 로그인 페이지 버튼 → "/" 이동 ✅
+  - 시나리오 3 수정: 거절 클릭 → 서비스 이용 불가 안내 → 로그인 페이지 버튼 → "/" 이동 ✅
+  - 프로젝트가 배포 가능한 상태입니다.

@@ -1,19 +1,16 @@
-import { clearToken, getToken, setToken } from "./tokenStore";
+import { clearToken, getTokenSync } from "./tokenStore";
 
 let isRefreshing = false;
 let refreshQueue: Array<(token: string) => void> = [];
 
-async function refreshAccessToken(): Promise<{ access_token: string; expires_in: number }> {
-  const res = await fetch("/api/v1/auth/token/refresh", {
-    method: "GET",
-    credentials: "include",
-  });
+async function refreshAccessToken(): Promise<{ access_token: string; expires_in?: number }> {
+  const res = await fetch("/api/v1/auth/token/refresh", { method: "GET", credentials: "include" });
   if (!res.ok) throw new Error("refresh_failed");
   return res.json();
 }
 
 export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
-  const token = await getToken();
+  const token = getTokenSync();
   const headers = new Headers(init.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
@@ -21,12 +18,12 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
 
   if (res.status !== 401) return res;
 
-  // access_token 만료 → refresh 시도
   if (!isRefreshing) {
     isRefreshing = true;
     try {
       const data = await refreshAccessToken();
-      setToken(data.access_token, sessionStorage.getItem("auth_provider") ?? "", data.expires_in);
+      sessionStorage.setItem("access_token", data.access_token);
+      if (data.expires_in) sessionStorage.setItem("access_token_expires_in", String(data.expires_in));
       refreshQueue.forEach((cb) => cb(data.access_token));
       refreshQueue = [];
       isRefreshing = false;
@@ -37,13 +34,12 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
     } catch {
       isRefreshing = false;
       refreshQueue = [];
-      clearToken();
+      clearToken(true);
       window.location.replace("/");
       return res;
     }
   }
 
-  // 이미 갱신 중이면 완료 대기 후 재시도
   return new Promise((resolve) => {
     refreshQueue.push((newToken) => {
       const retryHeaders = new Headers(init.headers);
