@@ -18,21 +18,21 @@ echo ""
 echo "${COLOR_BLUE}SSL 인증서를 발급에 사용할 이메일을 입력하세요.${COLOR_NC}"
 read -p "이메일: " email
 echo ""
-echo "${COLOR_BLUE}EC2 인스턴스 생성시 발급받은 ssh key 파일의 파일명을 입력하세요.(ex. ai_health_key.pem)${COLOR_NC}"
+echo "${COLOR_BLUE}OCI 인스턴스 생성시 발급받은 ssh key 파일의 파일명을 입력하세요.(ex. ai_health_key.pem)${COLOR_NC}"
 read -p "SSH 키 파일명: " ssh_key_file
 echo ""
-echo "${COLOR_BLUE}EC2 인스턴스의 IP를 입력하세요.${COLOR_NC}"
-read -p "EC2-IP: " ec2_ip
+echo "${COLOR_BLUE}OCI 인스턴스의 Public IP를 입력하세요.${COLOR_NC}"
+read -p "VM-IP: " ec2_ip
 echo ""
 
 # ---------- default.conf 파일의 server_name 자동 수정 ----------
 sed -i '' "s/server_name .*/server_name ${domain};/g" nginx/prod_http.conf
 
-# ---------- 수정된 prod_http.conf 파일을 EC2 인스턴스 내로 복사 ----------
+# ---------- 수정된 prod_http.conf 파일을 OCI 인스턴스 내로 복사 ----------
 scp -i ~/.ssh/${ssh_key_file} nginx/prod_http.conf ubuntu@${ec2_ip}:~/project/nginx/default.conf
 
-# ---------- EC2 접속 후 도메인 인증 및 SSL 발급 ----------
-echo "${COLOR_BLUE}EC2 인스턴스에 SSH 접속을 시도합니다.${COLOR_NC}"
+# ---------- OCI 접속 후 도메인 인증 및 SSL 발급 ----------
+echo "${COLOR_BLUE}OCI 인스턴스에 SSH 접속을 시도합니다.${COLOR_NC}"
 chmod 400 ~/.ssh/${ssh_key_file}
 ssh -i ~/.ssh/${ssh_key_file} ubuntu@${ec2_ip} \
   "CERT_EMAIL=${email} \

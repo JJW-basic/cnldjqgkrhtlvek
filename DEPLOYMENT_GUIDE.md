@@ -213,7 +213,150 @@ docker compose restart nginx
 
 ---
 
-## AWS 배포 가이드라인
+## OCI (Oracle Cloud Infrastructure) 배포 가이드라인
+
+> **현재 운영 환경**: OCI Ampere A1 (ARM64) + Duck DNS + Self-hosted Runner
+
+### 사전 준비
+
+- OCI Always Free 인스턴스 (Ampere A1, Ubuntu 22.04 LTS)
+- OCI VCN 보안 리스트 인바운드 규칙: 22(SSH), 80(HTTP), 443(HTTPS)
+- Docker Hub 계정 + Personal Access Token (PAT)
+- Duck DNS 계정 및 서브도메인 (예: `your-name.duckdns.org`)
+- OCI Reserved Public IP (고정 IP 필수 — 인증서 발급 전 반드시 확보)
+- SSH 키 페어 (`~/.ssh/` 경로)
+
+### 1. OCI 인스턴스 초기 설정
+
+```bash
+ssh -i ~/.ssh/your-key.pem ubuntu@<OCI_PUBLIC_IP>
+
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose-plugin
+sudo systemctl enable --now docker
+sudo usermod -aG docker ubuntu
+newgrp docker
+
+docker --version && docker compose version
+```
+
+### 2. OS 단계 iptables 방화벽 포트 개방 (⚠️ OCI 필수)
+
+> OCI 인스턴스는 OCI 콘솔(VCN)에서 포트를 열어도 **OS 내부 iptables가 기본적으로 22번 포트 외 모든 인바운드를 차단**합니다.
+> 반드시 아래 명령어로 OS 방화벽도 함께 개방해야 합니다.
+
+```bash
+sudo iptables -I INPUT -p tcp -m tcp --dport 80 -j ACCEPT
+sudo iptables -I INPUT -p tcp -m tcp --dport 443 -j ACCEPT
+sudo netfilter-persistent save
+```
+
+### 3. Duck DNS 도메인 매핑 (인증서 발급 전 필수)
+
+> **⚠️ 중요**: `certbot.sh`를 실행하기 **전에** 반드시 아래 순서를 완료하세요.
+> 순서를 지키지 않으면 Nginx ACME 챌린지 오류가 발생합니다.
+
+1. OCI 콘솔 → **Networking → Reserved Public IPs** → 고정 IP 발급
+2. [Duck DNS](https://www.duckdns.org) 로그인 → 서브도메인에 발급받은 고정 IP 입력 → **Update IP**
+3. Duck DNS는 **단일 도메인만 사용** 권장 (예: `your-name.duckdns.org`)
+   - `*.your-name.duckdns.org` 와일드카드 인증서는 HTTP-01 방식으로 발급 불가
+
+**Duck DNS 자동 갱신 (crontab)**:
+```bash
+# OCI 인스턴스에서 실행
+echo '*/5 * * * * curl -s "https://www.duckdns.org/update?domains=your-name&token=YOUR_DUCKDNS_TOKEN&ip=" > /dev/null 2>&1' | crontab -
+```
+
+### 4. OAuth 앱 Redirect URI 업데이트
+
+**카카오**: `https://your-name.duckdns.org/oauth/callback/kakao`
+**네이버**: `https://your-name.duckdns.org/oauth/callback/naver`
+
+### 5. 프로덕션 환경 변수 설정
+
+`envs/.prod.env`:
+
+```env
+ENV=prod
+SECRET_KEY=your-strong-secret-key-min-32-chars
+COOKIE_DOMAIN=your-name.duckdns.org
+
+KAKAO_CLIENT_ID=your-kakao-client-id
+KAKAO_CLIENT_SECRET=your-kakao-client-secret
+KAKAO_REDIRECT_URI=https://your-name.duckdns.org/oauth/callback/kakao
+
+NAVER_CLIENT_ID=your-naver-client-id
+NAVER_CLIENT_SECRET=your-naver-client-secret
+NAVER_REDIRECT_URI=https://your-name.duckdns.org/oauth/callback/naver
+
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_DB=0
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+REFRESH_TOKEN_EXPIRE_MINUTES=20160
+TASK_RESULT_TTL=3600
+
+DOCKER_USER=your_dockerhub_username
+DOCKER_REPOSITORY=ai-health
+APP_VERSION=v1.0.0
+AI_WORKER_VERSION=v1.0.0
+```
+
+### 6. 프론트엔드 프로덕션 빌드
+
+```bash
+# 로컬(Windows/Mac)에서 실행 후 OCI로 전송
+npm run build
+
+# OCI 인스턴스로 dist 디렉토리 전송
+scp -i ~/.ssh/your-key.pem -r dist/ ubuntu@<OCI_PUBLIC_IP>:~/project/dist/
+```
+
+### 7. 자동 배포 스크립트
+
+```bash
+chmod +x scripts/deployment.sh
+./scripts/deployment.sh
+```
+
+입력 항목:
+1. Docker Hub Username
+2. Docker Hub PAT
+3. Repository 이름
+4. 배포 서비스 선택 (FastAPI / AI-Worker)
+5. 버전 태그 (예: `v1.0.0`)
+6. SSH 키 파일명
+7. OCI Public IP
+8. HTTPS 사용 여부 → Duck DNS 도메인 입력
+
+### 8. SSL/HTTPS 설정
+
+> ⚠️ **사전 조건**: Duck DNS IP 매핑 완료 후 실행 (§3 참조)
+
+```bash
+chmod +x scripts/certbot.sh
+./scripts/certbot.sh
+```
+
+입력 항목:
+1. Duck DNS 도메인 (예: `your-name.duckdns.org`)
+2. 이메일
+3. SSH 키 파일명
+4. OCI Public IP
+
+### 9. 배포 후 확인
+
+```bash
+docker compose ps
+
+curl -o /dev/null -w "%{http_code}" https://your-name.duckdns.org/
+curl -o /dev/null -w "%{http_code}" https://your-name.duckdns.org/api/openapi.json
+curl -o /dev/null -w "%{http_code}" -L https://your-name.duckdns.org/api/v1/auth/kakao/login
+```
+
+---
+
+## AWS 배포 가이드라인 (레거시 참고용)
 
 ### 사전 준비
 
@@ -348,8 +491,10 @@ Redis TTL 5분 초과 시 발생. 로그인 페이지에서 다시 시도.
 
 - [ ] `SECRET_KEY` 프로덕션 전용 강력한 값 (32자 이상 랜덤)
 - [ ] `ENV=prod` 설정 → `secure=True` 쿠키 자동 적용
-- [ ] OAuth Redirect URI HTTPS로 업데이트
-- [ ] EC2 보안 그룹 최소 권한 원칙 적용
-- [ ] Redis 포트(6379) 외부 노출 차단 (프로덕션 docker-compose에서 `ports` 제거)
+- [ ] OAuth Redirect URI HTTPS + Duck DNS 도메인으로 업데이트
+- [ ] OCI VCN 보안 리스트 최소 권한 원칙 (22, 80, 443만 개방)
+- [ ] **OS iptables 80/443 포트 개방 확인** (OCI 필수 — 콘솔 설정만으론 부족)
+- [ ] Redis 포트(6379) 외부 노출 차단 (프로덕션 docker-compose에서 `ports` 없음 확인)
 - [ ] Docker Hub 이미지 프라이빗 설정 권장
 - [ ] 네이버 앱 제공 정보에 `본인인증 여부(is_certified)` 포함 확인
+- [ ] Duck DNS Reserved Public IP 매핑 후 certbot 실행 순서 준수

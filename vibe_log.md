@@ -644,3 +644,60 @@
   - 시나리오 2 수정: 거절 클릭 → 서비스 이용 불가 안내 → 로그인 페이지 버튼 → "/" 이동 ✅
   - 시나리오 3 수정: 거절 클릭 → 서비스 이용 불가 안내 → 로그인 페이지 버튼 → "/" 이동 ✅
   - 프로젝트가 배포 가능한 상태입니다.
+
+## [2026-04-28 00:45 KST] - ✅ OCI 배포 전환 — ORACLE_MIGRATION_GUIDE.md 가이드라인 전면 적용
+
+* **변경된 파일:** `scripts/deployment.sh`, `scripts/certbot.sh`, `docker-compose.prod.yml`, `nginx/prod_http.conf`, `nginx/prod_https.conf`, `.github/workflows/checks.yml`, `DEPLOYMENT_GUIDE.md`
+* **핵심 변경 사항:**
+  - [논리]: ORACLE_MIGRATION_GUIDE.md 검토 후 현재 코드베이스와 비교하여 7개 파일에서 문제 발견. 가이드 지침 + 독립적으로 발견된 추가 버그(쉘 조건문 오류, SPA 서빙 누락, MySQL 잔존 등)를 함께 수정
+  - [기능 — deployment.sh]:
+    - `--platform linux/amd64` 하드코딩 제거 → 호스트 아키텍처(ARM64) 자동 감지 빌드
+    - EC2 명칭 → OCI Instance/VM으로 범용화 (프롬프트 텍스트 전면 교체)
+    - `if is_https` 쉘 버그 → `if [[ "$is_https" == "1" ]]` 수정 (기존 코드 항상 참 평가 오류)
+    - Duck DNS 도메인 입력 프롬프트 명확화
+  - [기능 — certbot.sh]:
+    - EC2 명칭 → OCI/VM으로 전면 교체
+  - [기능 — docker-compose.prod.yml]:
+    - MySQL 서비스 및 관련 볼륨 완전 제거 (현 아키텍처는 No-DB, Redis 큐만 사용)
+    - Redis `ports` 외부 노출 제거 → 보안 강화 (내부 네트워크만 통신)
+    - fastapi/ai-worker의 MySQL depends_on 제거
+    - OCI ARM64용 `platform: linux/arm64` 명시
+    - Nginx에 `./dist:/usr/share/nginx/html:ro` 볼륨 마운트 추가 (React SPA 서빙)
+    - certbot 자동 갱신 서비스 유지
+  - [기능 — nginx/prod_http.conf]:
+    - `location /` 의 `return 404` → `try_files $uri $uri/ /index.html` (React SPA 클라이언트 라우팅 지원)
+    - OCI/Duck DNS 관련 주석 추가
+  - [기능 — nginx/prod_https.conf]:
+    - HTTP→HTTPS 리다이렉트 로직 개선 (`location /api/` 한정 → 전체 `/`)
+    - `location /` 의 `return 404` → `try_files $uri $uri/ /index.html` (React SPA 지원)
+    - Duck DNS 단일 도메인 사용 주의사항(와일드카드 인증서 불가) 주석 명시
+  - [기능 — checks.yml]:
+    - test job의 MySQL 서비스 섹션 제거 (아키텍처와 불일치, 불필요한 CI 리소스 낭비)
+  - [기능 — DEPLOYMENT_GUIDE.md]:
+    - OCI 배포 가이드라인 섹션 신규 추가 (9개 단계)
+    - OS iptables 방화벽 포트 개방 필수 절차 명시 (§2, ORACLE_MIGRATION_GUIDE §3.1 반영)
+    - Duck DNS IP 매핑 선행 조건 + 와일드카드 불가 경고 (§3, ORACLE_MIGRATION_GUIDE §4.1/§4.2 반영)
+    - Duck DNS crontab 자동 갱신 스크립트 추가
+    - 기존 AWS 섹션 "레거시 참고용" 표기로 구분
+    - 보안 체크리스트를 OCI 기준으로 업데이트
+* **결과 확인:** 파일 수정 완료. 로컬 docker-compose.yml은 변경 없음 (개발 환경 연속성 유지). 프로덕션 파이프라인(docker-compose.prod.yml + Nginx + scripts)은 OCI ARM64 배포에 최적화된 상태.
+* **참고:** ORACLE_MIGRATION_GUIDE.md의 모든 지침 적용 완료. 추가로 발견된 4개 독립 버그(쉘 조건문 오류, React SPA 404 버그, MySQL 잔존, Redis 포트 노출)도 함께 해결.
+
+## [2026-04-28 01:10 KST] - ✅ OCI 마이그레이션 코드 동작 검증 완료
+
+* **변경된 파일:** `docker-compose.prod.yml` (certbot networks 누락 수정)
+* **핵심 변경 사항:**
+  - [논리]: `docker compose -f docker-compose.prod.yml config` 검증 중 certbot 서비스가 `ws` 네트워크 대신 Docker 기본 네트워크에 배치되는 문제 발견 → `networks: - ws` 추가로 수정
+  - [검증]: `docker compose up -d --build` 실행하여 전체 스택 빌드 및 기동 확인
+* **결과 확인:**
+  - `docker compose -f docker-compose.prod.yml config` → 문법 오류 없음 ✅
+  - `docker compose -f docker-compose.yml config` → 문법 오류 없음 ✅
+  - `docker compose up -d --build` → 4개 컨테이너 모두 Up ✅
+  - `GET http://localhost/` → HTTP 200 (React SPA 서빙) ✅
+  - `GET http://localhost/api/openapi.json` → HTTP 200 ✅
+  - `GET http://localhost/api/v1/auth/kakao/login` → HTTP 307 ✅
+  - `GET http://localhost/api/v1/auth/naver/login` → HTTP 307 ✅
+  - `POST http://localhost/api/v1/prediction/` (인증 없음) → HTTP 401 ✅
+  - `GET http://localhost/api/v1/auth/token/refresh` (쿠키 없음) → HTTP 401 ✅
+  - `POST http://localhost/api/v1/auth/logout` → HTTP 200 ✅
+  - 프로젝트가 배포 가능한 상태입니다.

@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # Background & Context & Assets
 1. Goal: 만성질환 예측 AI 서비스 구축 및 OCI 배포 최적화
 2. 기술 스택
@@ -99,7 +103,7 @@
 3. Phase 3 (Implementation)
 	- 승인 후, docker-compose.yml, nginx.conf, main.py(API), worker.py(AI) 순으로 코드를 생성하라.
 4. Phase 4 (Deployment Documentation)
-	- 사용자가 OCI 환경에서 배포를 진행할 수 있도록 'DEPLOYMENT_GUIDE_OCI.md'를 수정하라(파일이 없으면 생성하라).
+	- 사용자가 OCI 환경에서 배포를 진행할 수 있도록 'DEPLOYMENT_GUIDE.md'를 수정하라(파일이 없으면 생성하라).
 	- 포함 내용: OCI 콘솔 설정법, SSH 키 관리, 도메인 연결, 트러블슈팅(Nginx 502 등).
 5. Phase 5 (Validation):
 	- 모든 작업 직후 `vibe_log.md`를 최신화하라.
