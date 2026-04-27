@@ -104,14 +104,16 @@ export function SurveyPage() {
 
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async () => {
+  // answers 파라미터를 받아 직접 제출 가능 (자동입력&분석 버튼에서 호출 시 state 비동기 문제 우회)
+  const handleSubmit = async (overrideAnswers?: Record<string, string>) => {
+    const submitData = overrideAnswers ?? answers;
     setSubmitting(true);
     try {
-      // 1) 태스크 제출
+      // 1) 태스크 제출 — 실제 AI 모델에 데이터 전달
       const submitRes = await apiFetch("/api/v1/prediction/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ survey_data: answers }),
+        body: JSON.stringify({ survey_data: submitData }),
       });
       if (!submitRes.ok) throw new Error("예측 요청 실패");
       const { task_id } = await submitRes.json();
@@ -128,7 +130,7 @@ export function SurveyPage() {
       }
       if (!result) throw new Error("분석 시간 초과");
 
-      sessionStorage.setItem("surveyAnswers", JSON.stringify(answers));
+      sessionStorage.setItem("surveyAnswers", JSON.stringify(submitData));
       sessionStorage.setItem("predictionResults", JSON.stringify(result));
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(SECTION_KEY);
@@ -149,19 +151,15 @@ export function SurveyPage() {
     setTimeout(() => setFillingAnimation(false), 800);
   };
 
-  const handleAutoFillAndAnalyze = () => {
+  // 더미 데이터 입력 후 실제 AI 모델 추론 요청 (mock 결과 사용 X)
+  const handleAutoFillAndAnalyze = async () => {
     setFillingAnimation(true);
     const dummyAnswers = { ...healthyMaleDummyData };
     setAnswers(dummyAnswers);
-    setTimeout(() => {
-      const mockResults = { DJ8_pre: 0, DI1_pre: 0, DE1_pre: 0, DI2_pre: 0 };
-      sessionStorage.setItem("surveyAnswers", JSON.stringify(dummyAnswers));
-      sessionStorage.setItem("predictionResults", JSON.stringify(mockResults));
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(SECTION_KEY);
-      setFillingAnimation(false);
-      navigate("/dashboard");
-    }, 1000);
+    setShowRestoreBanner(false);
+    setTimeout(() => setFillingAnimation(false), 800);
+    // setAnswers는 비동기이므로 dummyAnswers를 직접 전달
+    await handleSubmit(dummyAnswers);
   };
 
   const handleClearSave = () => {
@@ -251,11 +249,11 @@ export function SurveyPage() {
             </button>
             <button
               onClick={() => { handleAutoFillAndAnalyze(); setTestMenuOpen(false); }}
-              disabled={fillingAnimation}
+              disabled={fillingAnimation || submitting}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 text-white text-sm disabled:opacity-50"
               style={{ fontWeight: 600 }}
             >
-              <Zap className="w-3.5 h-3.5" /> 바로 분석
+              <Zap className="w-3.5 h-3.5" /> {submitting ? "AI 분석 중..." : "자동 입력 & 분석"}
             </button>
           </div>
         )}
@@ -267,7 +265,7 @@ export function SurveyPage() {
               테스트 모드: 빠르게 대시보드를 확인하고 싶으신가요?
             </p>
             <p className="text-amber-600 text-sm mt-0.5">
-              80개 문항에 건강한 남성 데이터를 자동으로 입력하고 바로 분석합니다.
+              샘플 데이터를 자동으로 입력하여 실제 AI 모델에 추론을 요청합니다.
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
@@ -281,11 +279,11 @@ export function SurveyPage() {
             </button>
             <button
               onClick={handleAutoFillAndAnalyze}
-              disabled={fillingAnimation}
+              disabled={fillingAnimation || submitting}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors text-sm disabled:opacity-50"
               style={{ fontWeight: 600 }}
             >
-              <Zap className="w-3.5 h-3.5" /> 자동 입력 & 분석
+              <Zap className="w-3.5 h-3.5" /> {submitting ? "AI 분석 중..." : "자동 입력 & 분석"}
             </button>
           </div>
         </div>
@@ -492,7 +490,7 @@ export function SurveyPage() {
           </button>
         ) : (
           <button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             disabled={progress < 100 || submitting}
             className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 transition-all shadow-md text-sm sm:text-base"
           >
