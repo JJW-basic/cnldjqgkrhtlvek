@@ -1,18 +1,17 @@
-# AI Healthcare Project Template
+# 만성질환 예측 AI 서비스 (AI Healthcare Service)
 
-이 프로젝트는 AI 모델 추론(Inference) 워커와 FastAPI API 서버를 통합한 서비스 템플릿입니다. 
-현대적인 Python 패키지 관리 도구인 `uv`와 컨테이너화 도구인 `Docker`를 활용하여 일관된 개발 및 배포 환경을 제공합니다.
+이 프로젝트는 KNHANES(국민건강영양조사) 데이터를 기반으로 4가지 만성질환(알레르기비염, 고혈압, 당뇨병, 이상지질혈증)의 위험도를 예측하고 생활 개선 가이드라인을 제공하는 AI 서비스입니다. 
+전체 시스템은 **Stateless 기반의 Zero PII 아키텍처**로 설계되어 개인정보를 수집/저장하지 않으며, **Oracle Cloud Infrastructure (OCI) Ampere A1 (ARM64)** 인프라에 최적화되어 있습니다.
 
 ---
 
 ## 🚀 주요 특징
 
-- **FastAPI Framework**: 고성능 비동기 API 서버 구현.
-- **AI Worker**: 모델 추론 및 학습 작업을 API 서버와 분리하여 처리.
-- **UV Package Manager**: 매우 빠른 의존성 설치 및 가상환경 관리.
-- **Tortoise ORM**: 비동기 방식의 데이터베이스 모델링 및 쿼리 관리.
-- **Docker-Compose**: MySQL, Redis, Nginx를 포함한 전체 서비스 스택을 한 번에 실행.
-- **CI/CD Scripts**: 코드 포맷팅(Ruff), 타입 체크(Mypy), 테스트(Pytest)를 위한 자동화 스크립트 제공.
+- **Zero PII & Stateless Architecture**: 외부 OAuth 인증(Kakao, Naver)만을 활용하며, 데이터베이스(RDBMS)를 사용하지 않아 개인정보(이름, 나이 등) 수집을 원천적으로 배제합니다.
+- **비동기 AI 추론 (Task Queue)**: FastAPI 서버와 PyTorch AI Worker 간의 결합도를 낮추고 병목 현상을 방지하기 위해 Redis 기반 비동기 큐(`BRPOP`)를 통해 통신합니다.
+- **프론트엔드 (React SPA)**: Vite와 TypeScript로 구축된 직관적인 대시보드와 KNHANES 80문항 설문 인터페이스 제공.
+- **OCI ARM64 최적화**: Docker Buildx를 활용한 다중 아키텍처 지원 및 Oracle Linux 8/9 환경에서의 원활한 구동을 보장합니다.
+- **자동화된 배포 파이프라인**: GitHub Actions (Self-hosted Runner)와 DuckDNS, Certbot(SSL)을 연동한 무중단 자동화 배포.
 
 ---
 
@@ -20,157 +19,98 @@
 
 ```text
 .
-├── ai_worker/          # AI 모델 추론 및 학습 관련 코드 (Worker)
-│   ├── core/           # 워커 설정 및 로거
-│   ├── models/         # AI 모델 파일 보관 (PyTorch 등)
-│   ├── tasks/          # 실제 처리할 작업 정의
-│   └── main.py         # 워커 진입점
-├── app/                # FastAPI 서버 코드
-│   ├── apis/           # API 라우터 (v1 버전 관리)
-│   ├── core/           # 서버 설정 (pydantic-settings)
-│   ├── db/             # 데이터베이스 초기화 및 마이그레이션 (Tortoise ORM)
-│   ├── dtos/           # 데이터 전송 객체 (Pydantic models)
-│   ├── models/         # DB 테이블 정의
-│   ├── services/       # 비즈니스 로직
+├── ai_worker/          # AI 모델 추론 관련 코드 (MLP Worker / PyTorch)
+│   ├── core/           # 워커 설정
+│   ├── models/         # KNHANES 기반 모델 (`chronic_predictor.py`)
+│   └── main.py         # 워커 진입점 및 Redis 큐 대기
+├── app/                # FastAPI 서버 코드 (백엔드)
+│   ├── apis/           # API 라우터 (인증, 예측 요청 폴링 등)
+│   ├── core/           # 서버 설정
+│   ├── services/       # 비즈니스 로직 및 JWT 생성
 │   └── main.py         # FastAPI 애플리케이션 진입점
+├── src/                # React 프론트엔드 코드 (Vite + TypeScript)
+│   ├── app/            # 페이지, 컴포넌트, 라우팅 정의
+│   ├── index.html      # 진입점
+│   └── vite.config.ts
 ├── envs/               # 환경 변수 설정 파일 (.env)
-├── nginx/              # Nginx 설정 파일 (리버스 프록시)
-├── scripts/            # 배포 및 CI용 쉘 스크립트
-├── docker-compose.yml  # 전체 서비스 실행 설정
-└── pyproject.toml      # uv 기반 의존성 관리 설정
+├── nginx/              # Nginx 설정 파일 (리버스 프록시 및 SPA 서빙)
+├── scripts/            # 배포, 인증서 갱신(Certbot), CI 쉘 스크립트
+├── docker-compose.yml       # 로컬 개발용 Docker Compose 설정
+├── docker-compose.prod.yml  # 운영 배포용 OCI ARM64 최적화 설정
+└── pyproject.toml      # uv 기반 백엔드/AI 의존성 관리 설정
 ```
 
 ---
 
 ## ⚙️ 사전 준비 사항
 
-- **Python**: 3.13 이상 (로컬 개발 환경용)
-- **UV**: Python 패키지 매니저 ([설치 가이드](https://github.com/astral-sh/uv))
-- **Docker & Docker-Compose**: 전체 서비스 실행용
+- **백엔드/AI**: Python 3.13 이상, `uv` (패키지 매니저)
+- **프론트엔드**: Node.js 20+, npm
+- **인프라**: Docker & Docker-Compose
 
 ---
 
-## 🛠️ 설치 및 설정
+## 🛠️ 설치 및 설정 (로컬 환경)
 
-### 1. 가상환경 구축 및 의존성 설치
-
-`uv`를 사용하여 프로젝트에 필요한 패키지를 설치합니다.
-
+### 1. 백엔드 및 AI 워커 패키지 설치
+`uv`를 사용하여 가상환경을 생성하고 의존성을 설치합니다.
 ```bash
-# 의존성 설치 (가상환경 자동 생성)
 uv sync
-
-# 특정 그룹의 의존성만 설치하려는 경우
-uv sync --group app  # API 서버용
-uv sync --group ai   # AI 워커용
 ```
 
-### 2. 환경 변수 설정
+### 2. 프론트엔드 패키지 설치
+```bash
+npm install
+```
 
-`envs/` 디렉토리에 있는 예시 파일을 복사하여 `.env` 파일을 생성합니다.
-- 로컬용 
-    ```bash
-    cp envs/example.local.env envs/.local.env
-    ```
-- 배포용 
-    ```bash
-    cp envs/example.prod.env envs/.prod.env
-    ```
-
-생성된 `env` 파일 내의 환경변수들은 프로젝트 상황에 맞게 수정하세요.
+### 3. 환경 변수 설정
+`envs/` 디렉토리에 있는 예시 파일을 참고하여 최상단에 `.env` 파일을 생성합니다. (또는 `.local.env` 활용)
 
 ---
 
 ## 🏃 실행 방법
 
-### 1. 로컬 및 개발 환경
+### 로컬 환경 (Local Development)
 
-#### Docker Compose로 전체 스택 실행
+**1. 프론트엔드 실행**
+```bash
+npm run dev
+```
 
-모든 서비스(API, Worker, DB, Redis, Nginx)를 한 번에 실행합니다.
+**2. 백엔드 및 AI 로컬 실행**
+```bash
+# FastAPI 서버
+uv run uvicorn app.main:app --reload
 
+# AI Worker
+uv run python -m ai_worker.main
+```
+
+**3. 전체 스택 Docker 구동**
+로컬 테스트를 위해 전체 스택(Nginx, FastAPI, AI Worker, Redis)을 구동합니다.
 ```bash
 docker-compose up -d --build
 ```
 
-실행 후 다음 주소로 접속 가능합니다:
-- **API 서버**: [http://localhost/api/docs](http://localhost/api/docs) (Swagger UI)
-- **Nginx**: 80 포트를 통해 API 서버로 요청을 전달합니다.
+### 운영 배포 환경 (Production - OCI)
 
-#### 로컬에서 개별 실행 (개발용)
-
-**FastAPI 서버 실행:**
-```bash
-uv run uvicorn app.main:app --reload
-# or
-docker compose up -d --build app
-```
-
-**AI Worker 실행:**
-```bash
-uv run python -m ai_worker.main
-# or
-docker compose up -d --build ai_worker
-```
-
-### 2. EC2 배포 환경 (Production)
-
-제공된 쉘 스크립트를 사용하여 AWS EC2 환경에 이미지를 빌드, 푸시 및 배포할 수 있습니다.
-
-#### 사전 준비
-- EC2 인스턴스 (Ubuntu 권장)
-- SSH 키 페어 (`~/.ssh/` 경로에 위치)
-- 도커 허브(Docker Hub) 계정 및 Personal Access Token
-- 배포용 환경 변수 설정 (`envs/.prod.env`)
-- 도메인 구매 (Gabia, GoDaddy, AWS Route53 등)
-
-#### 자동 배포 스크립트 실행
-`scripts/deployment.sh`는 도커 이미지 빌드, 레포지토리 푸시, EC2 접속 및 컨테이너 실행 과정을 자동화합니다.
+본 시스템은 OCI Ampere A1 환경을 타겟으로 `docker-compose.prod.yml`을 사용하여 배포됩니다.
+내장된 배포 스크립트를 통해 원클릭으로 ARM64 환경에 대응할 수 있습니다.
 
 ```bash
-chmod +x scripts/deployment.sh
-./scripts/deployment.sh
+docker-compose -f docker-compose.prod.yml up -d --build
 ```
-스크립트 실행 시 다음 정보를 입력해야 합니다:
-1. 도커 허브 계정 정보 (Username, PAT)
-2. 이미지를 업로드할 레포지토리 이름
-3. 배포할 서비스 선택 (FastAPI, AI-Worker) 및 버전(Tag)
-4. SSH 키 파일명 및 EC2 IP 주소
-5. https 사용여부
-   - 5-1. https인 경우 도메인 추가 입력  
-
-#### SSL(HTTPS) 설정 (Certbot)
-도메인을 연결하고 HTTPS를 적용하려면 `scripts/certbot.sh`를 사용합니다.
-
-```bash
-chmod +x scripts/certbot.sh
-./scripts/certbot.sh
-```
-1. 도메인 주소 및 이메일 입력
-2. SSH 키 파일명 및 EC2 IP 주소 입력
-3. Let's Encrypt를 통한 인증서 발급 및 Nginx 설정 자동 갱신 적용
+> **참고**: 프로덕션 모드에서는 Redis의 외부 포트가 노출되지 않으며, SSL 자동 갱신(Certbot) 컨테이너가 함께 실행됩니다.
 
 ---
 
-## 🧪 테스트 및 품질 관리
+## 📝 데이터 흐름 요약
 
-제공된 스크립트를 사용하여 코드의 품질을 검증할 수 있습니다.
+1. **사용자 진입**: Nginx를 거쳐 React SPA가 브라우저에 로드됨.
+2. **인증**: 카카오/네이버 외부 OAuth 인증 수행 후 FastAPI에서 자체 JWT 토큰 발급.
+3. **분석 요청**: 사용자가 작성한 설문을 FastAPI에 POST로 전송.
+4. **작업 큐 대기**: FastAPI는 Redis에 데이터를 `LPUSH` 하고 `task_id`를 React로 응답.
+5. **AI 추론**: AI Worker가 `BRPOP`으로 데이터를 꺼내어 모델 추론 후, 결과를 Redis에 임시(TTL) 저장.
+6. **결과 시각화**: React가 `task_id`로 FastAPI에 상태를 폴링하여 결과를 받아 대시보드에 렌더링.
 
-```bash
-# 테스트 실행
-./scripts/ci/run_test.sh
-
-# 코드 포맷팅 확인 (Ruff)
-./scripts/ci/code_fommatting.sh
-
-# 정적 타입 검사 (Mypy)
-./scripts/ci/check_mypy.sh
-```
-
----
-
-## 📝 개발 가이드
-
-- **API 추가**: `app/apis/v1/` 아래에 새로운 라우터 파일을 생성하고 `app/apis/v1/__init__.py`에 등록하세요.
-- **DB 모델 추가**: `app/models/`에 Tortoise 모델을 정의하고 `app/db/databases.py`의 `MODELS` 리스트에 추가하세요.
-- **AI 로직 추가**: `ai_worker/tasks/`에 새로운 처리 로직을 작성하고 `ai_worker/main.py`에서 호출하도록 구성하세요.
+> **⚠️ 주의사항**: 본 서비스의 모든 출력물 및 가이드라인은 통계 및 데이터 기반의 참고용이며, 정확한 진단을 위해서는 의료 전문가와의 상담이 필수적입니다.

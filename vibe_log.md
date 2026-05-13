@@ -31,7 +31,7 @@
   - `app/tests/` (DB 의존 테스트 전체)
 
 * **핵심 변경 사항:**
-  - [논리]: 구현 목표인 만성질환 예측 AI 서비스는 DB를 사용하지 않고 외부 OAuth 인증만 사용하므로, Tortoise ORM / MySQL / Aerich / bcrypt / 회원가입 관련 코드를 전면 제거하여 불필요한 의존성과 복잡도를 제거함
+  - [논리]: 구현 목표인 만성질환 예측 AI 서비스는 DB 기를 사용하지 않고 외부 OAuth 인증만 사용하므로, Tortoise ORM / MySQL / Aerich / bcrypt / 회원가입 관련 코드를 전면 제거하여 불필요한 의존성과 복잡도를 제거함
   - [기능 제거]: 회원가입(`/auth/signup`), DB 기반 로그인(`/auth/login`), 사용자 정보 조회/수정(`/users/me`) 엔드포인트 삭제
   - [기능 추가]: 외부 OAuth 콜백 플레이스홀더 엔드포인트(`POST /auth/oauth/callback`) 추가 — OAuth Provider 연동 구현 예정
   - [기능 유지]: JWT Access/Refresh Token 발급·검증 로직 유지 (`GET /auth/token/refresh`)
@@ -715,3 +715,84 @@
   - `PredictionRequest` DTO 모델과 프론트엔드의 Request Body(`survey_data`) 형태가 일치함을 확인.
   - 실제 OCI 운영 환경에서도 "로그인 -> 설문 응답(혹은 자동 입력) -> AI 모델의 실제 추론 결과 확인" 흐름이 정상 동작할 수 있도록 인프라 및 API 구성이 모두 연결되었습니다.
 * **참고:** 모든 테스트 통과 및 점검 완료. 서비스 배포 및 정상 운영에 문제가 없는 상태입니다.
+
+## [2026-04-28 02:58 KST] - ✅ 시스템 구성도 및 흐름도 마크다운 문서 생성 완료
+
+* **변경된 파일:** `SYSTEM_ARCHITECTURE.md` (신규 생성)
+* **핵심 변경 사항:**
+  - [논리]: 사용자의 요청에 따라 전체 프로젝트의 데이터 및 인프라 파이프라인(User -> Nginx -> FastAPI -> Redis -> AI-Worker)을 시각적으로 파악할 수 있는 시스템 아키텍처 문서를 생성했습니다.
+  - [기능]: Mermaid.js 문법을 활용하여 OCI 환경(ARM64), 무상태(Stateless) 백엔드, 비동기 Task Queue 흐름을 상세하게 도식화.
+* **결과 확인:** 프로젝트 루트 경로에 `SYSTEM_ARCHITECTURE.md` 파일 정상 생성.
+* **참고:** 작성된 문서는 GitHub 및 일반 Markdown 뷰어에서 흐름도(Flowchart) 형태로 깔끔하게 렌더링됩니다.
+
+## [2026-04-28 03:12 KST] - ✅ 전체 시스템 구성도 최신화 및 마크다운 완성
+
+* **변경된 파일:** `SYSTEM_ARCHITECTURE.md`
+* **핵심 변경 사항:**
+  - [논리]: 요구사항에 명시된 목표, 데이터 구조, 5단계의 상세 사용자 여정(User Journey)을 문서에 완벽히 통합하여 프로젝트 현황을 명확히 함.
+  - [기능]: 사용자의 5가지 핵심 설계 관점(가용성, 확장성, 보안성, 윤리적 편향성, 인지적 개방성)을 문서화하여 아키텍처 철학을 구체화. 기존 Mermaid 다이어그램을 유지하며 상세 설명을 강화.
+* **결과 확인:** 파일 내용 갱신 완료 및 프로젝트 아키텍처 다이어그램 정상 렌더링.
+* **참고:** 프로젝트 배포 전 문서 최종화 상태.
+
+## [2026-04-29 19:14 KST] - ✅ 전체 프로젝트 구조 및 흐름 분석 보고서 생성 완료
+
+* **변경된 파일:** `PROJECT_STRUCTURE_ANALYSIS.md` (신규 생성)
+* **핵심 변경 사항:**
+  - [논리]: 사용자의 요청에 따라 현재 No-DB, OAuth, 비동기 AI 파이프라인(FastAPI + Redis + AI Worker) 구조에 대한 시스템 논리를 심층 분석.
+  - [기능]: '근본 원인 - 해결 방안 - 재발 방지' 프레임워크 및 '5대 관점(가용성, 확장성, 보안성, 편향성, 인지적 개방성)'을 모두 반영한 다차원 추론 분석 내용 작성 및 마크다운 파일 제공.
+* **결과 확인:** 파일 정상 생성. 아키텍처의 의도 및 데이터 흐름을 명확하게 정의함.
+
+## [2026-05-11 21:30 KST] - ✅ 불필요한 레거시 코드 제거 및 프로젝트 README 구조 최신화
+
+* **변경된 파일:** `README.md`, `vibe_log.md`
+* **삭제된 파일:** `ai_worker/models/inference.py`, `ai_worker/tasks/` 디렉토리 전체, `fastapi_test.log`
+* **핵심 변경 사항:**
+  - [논리]: 이전 모델 추론 개발 단계에서 사용되고 버려진 `inference.py` 및 빈 패키지(`tasks/`)와 로컬 임시 로그 파일을 삭제하여 휴먼 에러 발생 가능성을 제거하고 디렉토리를 정리함.
+  - [기능]: 프로젝트 메인 `README.md` 문서를 현재 구현된 React SPA + FastAPI + Redis Task Queue + AI Worker(MLP)의 Stateless/Zero PII 아키텍처에 맞추어 전면 재작성함. Tortoise ORM 및 DB 관련 내용을 모두 삭제하고 OCI(Oracle Cloud Infrastructure) Ampere A1 (ARM64) 기반 배포 지침을 반영함.
+* **결과 확인:** `README.md` 가 실제 시스템 구조와 100% 일치하도록 업데이트 완료, 잔재 파일 삭제.
+
+## [2026-05-11 21:48 KST] - ✅ 전체 프로젝트 아키텍처 점검 및 OCI 배포 호환성(Docker Buildx) 개선
+
+* **변경된 파일:** `scripts/deployment.sh`
+* **핵심 변경 사항:**
+  - [논리]: 배포 대상 환경이 OCI Ampere A1 (ARM64)인 반면 사용자의 개발 환경(Windows)이 보통 x86_64(AMD64) 아키텍처이기 때문에 일반 `docker build`를 사용하면 배포 시 'exec format error'가 발생할 수 있는 문제를 선제적으로 해결함.
+  - [기능]: `scripts/deployment.sh`에서 이미지 빌드 및 푸시를 수행하는 부분을 일반 `docker build`에서 `docker buildx build --platform linux/arm64 --push` 명령어로 수정하여 교차 컴파일(Cross-compilation)을 강제 적용함.
+* **결과 확인:** 앱과 AI Worker의 Dockerfile, 폴더 구조, 서비스 간 통신 흐름(No-DB, Redis Queue) 모두 안정적인 분산 시스템 설계 원칙을 준수하고 있음을 확인.
+
+## [2026-05-11 21:59 KST] - ✅ FastAPI 백엔드 모듈 단위 테스트 코드(Pytest) 도입
+
+* **변경된 파일:** `pyproject.toml`, `app/tests/__init__.py`, `app/tests/test_prediction.py`, `app/tests/test_auth.py`, `app/tests/test_jwt.py`, `app/tests/test_security.py`
+* **핵심 변경 사항:**
+  - [논리]: 안정적인 배포 및 CI 파이프라인의 검증 단계(`checks.yml`)를 활용하기 위해, 기존에 없었던 단위 테스트(Unit Test)를 작성하여 핵심 비즈니스 로직에 대한 검증을 자동화함.
+  - [기능 - 의존성]: `pyproject.toml`에 Windows 환경 테스트 오류(`ZoneInfoNotFoundError`)를 해결하기 위한 `tzdata` 패키지 의존성 추가.
+  - [기능 - 예측 API]: `test_prediction.py`에 `TestClient`와 의존성 주입(Dependency Overrides)을 사용하여 Redis를 모킹(Mocking)하고 상태(Pending, Completed, Error)별 예측 결과 반환 로직을 테스트.
+  - [기능 - 인증 API]: `test_auth.py`, `test_jwt.py`, `test_security.py`에 OAuth 리다이렉트 통신, JWT(Access/Refresh Token) 발행 및 갱신, 유효성 검증, 로그아웃 등의 전반적인 인증 로직 검증 코드 추가 (Redis 연결은 패치 사용).
+* **결과 확인:** `uv run pytest app/tests` 실행 결과 총 14개 테스트 케이스 정상 통과 확인. 서비스가 의도한 논리대로 무결하게 동작함을 검증 완료.
+
+## [2026-05-11 22:38 KST] - ✅ 프로젝트 아키텍처 분석 문서 최신화 (CI/CD 및 교차 컴파일 반영)
+
+* **변경된 파일:** `PROJECT_STRUCTURE_ANALYSIS.md`
+* **핵심 변경 사항:**
+  - [논리]: 이전 분석 문서에는 단위 테스트 기반의 무결성 보장 메커니즘과, 로컬-운영 서버 간 아키텍처 불일치를 해결하기 위한 교차 컴파일 로직이 누락되어 있었으므로 이를 보완함.
+  - [기능]: '전체 프로젝트 구조' 섹션에 `CI/CD & Deployment Infrastructure` 항을 추가하여 GitHub Actions(Pytest)와 Docker Buildx의 역할을 명시함.
+  - [기능]: '5대 핵심 관점 평가' 섹션에 `유지보수성 및 배포 안정성(Maintainability & Deployment Stability)` 관점을 신설하여 아키텍처 차이(x86_64 vs ARM64) 극복 논리를 구체화함.
+* **결과 확인:** 현재 프로젝트의 최종 설계 철학이 문서에 100% 반영됨.
+
+## [2026-05-11 22:42 KST] - ✅ 시스템 구성도 다이어그램 및 파이프라인 흐름(SYSTEM_ARCHITECTURE.md) 업데이트
+
+* **변경된 파일:** `SYSTEM_ARCHITECTURE.md`
+* **핵심 변경 사항:**
+  - [논리]: 앞서 구축한 단위 테스트(Pytest) 파이프라인 및 교차 컴파일(Docker Buildx) 워크플로우를 전체 시스템 구성도에 통합하여 시각적으로 쉽게 파악할 수 있도록 마크다운 및 Mermaid 다이어그램을 보완함.
+  - [기능]: '기술 스택' 영역에 `Testing(Pytest)` 항목 및 `Docker Buildx` 명시.
+  - [기능]: '아키텍처 다이어그램(Mermaid)' 내부에 `CI_CD_Pipeline` 서브그래프를 신설하고 GitHub Actions(검증) -> Docker Buildx(교차 컴파일) -> OCI_ENV(배포)로 이어지는 흐름을 구체적으로 도식화.
+  - [기능]: 다이어그램 하단에 `3.3 CI/CD 및 배포 파이프라인` 섹션을 신규 추가하여 자동화 로직을 설명함.
+* **결과 확인:** 기술 스택부터 인프라 다이어그램, 텍스트 설명까지 아키텍처 다큐멘테이션 최신화 완료.
+
+## [2026-05-11 22:54 KST] - ✅ 아키텍처 다이어그램 분리 및 구조 최적화
+
+* **변경된 파일:** `SYSTEM_ARCHITECTURE.md`, `Architecture_Diagram.mermaid` (신규)
+* **핵심 변경 사항:**
+  - [논리]: 마크다운 문서의 텍스트 기반 정보 전달력을 극대화하기 위해, 내용이 길고 복잡한 Mermaid 다이어그램 코드를 별도의 전용 파일로 분리함.
+  - [기능]: 기존 `SYSTEM_ARCHITECTURE.md` 내부에 있던 Mermaid 다이어그램을 제거하고, 이를 참조할 수 있는 안내 문구와 링크 추가.
+  - [기능]: 전체 프로젝트 구조(`PROJECT_STRUCTURE_ANALYSIS.md` 및 `SYSTEM_ARCHITECTURE.md`)를 기반으로 최신화된 CI/CD 흐름과 무상태/비동기 인프라 구조가 모두 포함된 `Architecture_Diagram.mermaid` 파일 단독 생성.
+* **결과 확인:** 문서 역할 분리를 통해 유지보수성과 가독성을 동시에 향상함.

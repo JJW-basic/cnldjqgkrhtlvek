@@ -24,11 +24,10 @@ build_and_push () {
   else
     tag_base="ai"
   fi
-  echo "${COLOR_BLUE}${name} Docker Image Build Start.${COLOR_NC}"
-  docker build -t ${docker_user}/${docker_repo}:${tag_base}-${tag} -f ${dockerfile} ${context}
-
-  echo "${COLOR_BLUE}${name} Docker Image Push Start.${COLOR_NC}"
-  docker push ${docker_user}/${docker_repo}:${tag_base}-${tag}
+  echo "${COLOR_BLUE}${name} Docker Image Build & Push Start (ARM64).${COLOR_NC}"
+  # 빌드 환경(Windows/Mac)과 배포 환경(OCI ARM64)이 다를 수 있으므로
+  # Docker Buildx를 사용하여 linux/arm64 아키텍처로 빌드와 동시에 푸시합니다.
+  docker buildx build --platform linux/arm64 -t ${docker_user}/${docker_repo}:${tag_base}-${tag} -f ${dockerfile} ${context} --push
 
   echo "${COLOR_GREEN}${name} Done.${COLOR_NC}"
   echo ""
