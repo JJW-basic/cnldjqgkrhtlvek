@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router";
 import { Shield, Lock } from "lucide-react";
+import logoImg from "../../asets/icons/logo.png";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -23,9 +24,7 @@ export function LoginPage() {
       <div className="relative w-full max-w-md">
         <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-8 sm:p-10 shadow-2xl">
           <div className="flex flex-col items-center mb-8">
-            <div className="w-28 h-28 mb-4 rounded-2xl shadow-lg bg-blue-600 flex items-center justify-center">
-              <span className="text-white text-4xl">🏥</span>
-            </div>
+            <img src={logoImg} alt="만성질환 예측 AI 로고" className="w-28 h-28 mb-4 object-contain rounded-2xl shadow-lg" />
             <h1 className="text-white text-center" style={{ fontSize: "1.5rem", fontWeight: 700 }}>만성질환 예측 AI 서비스</h1>
             <p className="text-blue-200/70 mt-2 text-center">User - AI - Doctor Collaboration</p>
           </div>

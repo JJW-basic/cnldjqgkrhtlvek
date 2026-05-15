@@ -1,4 +1,4 @@
-const modelImage = "";
+import modelImage from '../../asets/images/MLP_Model.png';
 
 export function AIModelPage() {
   return (
@@ -10,8 +10,8 @@ export function AIModelPage() {
           80개의 건강 변수를 입력받아 4가지 만성질환(알레르기 비염, 고혈압, 당뇨병, 이상지질혈증)의 보유 가능성을 예측합니다.
         </p>
       </div>
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <img src={modelImage} alt="Predictor Model Architecture" className="w-full" />
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-4">
+        <img src={modelImage} alt="Predictor Model Architecture" className="w-full max-h-[600px] object-contain" />
       </div>
       <div className="grid sm:grid-cols-3 gap-4 mt-8">
         {[

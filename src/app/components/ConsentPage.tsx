@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { Shield, Lock, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { useAuthContext } from "../lib/AuthContext";
+import logoImg from "../../asets/icons/logo.png";
 
 /**
  * ConsentPage — 접근 조건 (기준 4):
@@ -148,9 +149,7 @@ export function ConsentPage() {
       <div className="relative w-full max-w-lg">
         <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-8 sm:p-10 shadow-2xl">
           <div className="flex flex-col items-center mb-8">
-            <div className="w-20 h-20 mb-4 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg">
-              <span className="text-white text-3xl">🏥</span>
-            </div>
+            <img src={logoImg} alt="만성질환 예측 AI 로고" className="w-20 h-20 mb-4 object-contain rounded-2xl shadow-lg" />
             <h1 className="text-white text-center text-2xl font-bold">만성질환 예측 AI 서비스</h1>
             <p className="text-blue-200/70 mt-2 text-center text-sm">서비스 이용 안내 및 동의</p>
           </div>

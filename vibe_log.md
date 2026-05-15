@@ -796,3 +796,27 @@
   - [기능]: 기존 `SYSTEM_ARCHITECTURE.md` 내부에 있던 Mermaid 다이어그램을 제거하고, 이를 참조할 수 있는 안내 문구와 링크 추가.
   - [기능]: 전체 프로젝트 구조(`PROJECT_STRUCTURE_ANALYSIS.md` 및 `SYSTEM_ARCHITECTURE.md`)를 기반으로 최신화된 CI/CD 흐름과 무상태/비동기 인프라 구조가 모두 포함된 `Architecture_Diagram.mermaid` 파일 단독 생성.
 * **결과 확인:** 문서 역할 분리를 통해 유지보수성과 가독성을 동시에 향상함.
+
+## [2026-05-15 11:38 KST] - (성공✅) 웹 UI 서비스 선택 페이지 이미지 연결 및 3D 회전 애니메이션 추가
+* **변경된 파일:** src/app/components/AIModelPage.tsx, src/app/components/TechStackPage.tsx
+* **핵심 변경 사항:**
+	- [논리]: 사용자가 서비스 선택 페이지에서 'AI 모델'과 '기술 스택'을 선택했을 때 시각적 피드백을 제공하기 위해 빈 문자열로 되어있던 이미지 소스를 실제 이미지 파일로 연결하고, 기술 스택 페이지에는 두 개의 아키텍처 다이어그램을 토글할 수 있는 회전(Flip) 애니메이션을 구현함.
+	- [기능]: AIModelPage.tsx에 MLP_Model.png 이미지 연결 및 화면에 맞게 object-contain 속성 추가. TechStackPage.tsx에 Architecture_Diagram.png와 Architecture_Workflow.png 연결, 클릭 시 3D 회전(rotateY)하는 효과 추가 및 비율 고정.
+* **결과 확인:** 이미지 정상 연결 및 크기 조정, 애니메이션 작동 적용 완료.
+* **참고:** 사용자 요청에 따른 UI 개선.
+
+## [2026-05-15 12:02 KST] - (성공✅) 앱 헤더 및 로그인 페이지 로고 이미지 적용
+* **변경된 파일:** `src/app/components/Layout.tsx`, `src/app/components/LoginPage.tsx`
+* **핵심 변경 사항:**
+	- [논리]: 로고 칸이 비어있어 대체 아이콘이 표시되던 문제를 해결하고, 실제 웹서비스의 정체성을 시각적으로 반영하기 위해 `src/asets/icons/logo.png` 이미지를 적용함.
+	- [기능]: `Layout.tsx`의 헤더 영역과 `LoginPage.tsx`의 로그인 화면에서 사용되던 기존 이모지 아이콘(`🏥`)을 제거하고, `logo.png`를 렌더링하는 `<img>` 태그로 교체함.
+* **결과 확인:** 로고 이미지가 정상적으로 불러와지며 UI에 맞게 표시되도록 수정 완료.
+* **참고:** 사용자 요청에 따른 UI 개선.
+
+## [2026-05-15 12:08 KST] - (성공✅) 서비스 이용 안내 및 동의 페이지 로고 이미지 추가 적용
+* **변경된 파일:** `src/app/components/ConsentPage.tsx`
+* **핵심 변경 사항:**
+	- [논리]: 로그인 및 헤더 이외에 '서비스 이용 안내 및 동의' 페이지에도 여전히 기존 임시 이모지 아이콘이 표출되고 있던 문제를 해결하기 위해, 해당 뷰에도 `logo.png` 이미지를 일관성 있게 적용함.
+	- [기능]: `ConsentPage.tsx`의 컨테이너를 `<img>` 태그로 수정하여 `logo.png` 파일이 정상적으로 노출되도록 반영함. 이후 `npm run build` 및 `docker compose restart nginx` 명령어를 수행하여 변경된 프론트엔드 자산을 운영 서버에 최신화함.
+* **결과 확인:** 동의 페이지 접속 시 대체 아이콘이 아닌 설정한 로고 이미지가 정상 렌더링됨.
+* **참고:** 사용자 요청에 따른 잔여 UI 수정 및 빌드 반영.
