@@ -3,11 +3,11 @@ description: # [Workflow] 만성질환 예측 AI 서비스 구현 파이프라�
 ---
 
 ## 1. 개요 (Overview)
-본 워크플로우는 안티 그래비티(Anti-gravity) 환경에서 OCI 기반 만성질환 예측 웹 서비스(DB-less)를 구축하기 위한 표준 작업 절차를 정의한다. AI 에이전트는 사용자의 요청을 수신할 때마다 아래의 단계를 엄격히 순차적으로 실행해야 한다.
+본 워크플로우는 안티 그래비티(Anti-gravity) 환경에서 AWS EC2 (x86_64) 기반 만성질환 예측 웹 서비스(DB-less)를 구축하기 위한 표준 작업 절차를 정의한다. AI 에이전트는 사용자의 요청을 수신할 때마다 아래의 단계를 엄격히 순차적으로 실행해야 한다.
 
 ## 2. 사전 제약 조건 (Pre-flight Constraints)
 * **패키지 관리 (Package Management):** Python 의존성 설치 및 환경 구성은 반드시 `uv`를 사용한다.
-* **아키텍처 호환성 (Architecture Compatibility):** OCI Ampere A1 배포를 전제로 하며, Dockerfile 작성 시 `linux/arm64` 멀티 플랫폼 빌드를 고려한다.
+* **아키텍처 호환성 (Architecture Compatibility):** AWS EC2 m7i-flex.large (x86_64) 배포를 전제로 하며, Dockerfile 작성 및 CI/CD 파이프라인 구성 시 linux/amd64 단일 플랫폼 빌드를 강제한다.
 * **극단적 개인정보 보호 (Zero PII):** 모든 설계 및 구현 단계에서 이름, 나이, 연락처 등 식별 가능한 개인정보 수집/저장 로직을 배제한다.
 * **구조적 시각화 (Structural Visualization):** 시스템 아키텍처 및 비동기 워크플로우 설명이 필요할 경우, `Mermaid.js`를 활용하여 시각적 다이어그램을 생성한다.
 
@@ -26,7 +26,7 @@ description: # [Workflow] 만성질환 예측 AI 서비스 구현 파이프라�
 ### Step 3: 코드 구현 및 리뷰 (Implementation & Self-Review)
 1.  선택된 기술 스택(FastAPI, React+TS, Docker 등)에 맞춰 코드를 생성한다.
 2.  예외 처리 전략을 점검한다 (예: Redis 연결 실패 시 503 에러 반환, 추론 시간 초과 시 Graceful Error 처리).
-3.  코드가 OCI Linux(ARM64)와 로컬 Windows 환경 모두에서 호환되는지 교차 검증한다.
+3.  코드가 AWS EC2 Linux(x86_64/amd64)와 로컬 Windows 환경 모두에서 호환되는지 교차 검증한다.
 
 ### Step 4: 산출물 반영 및 로그 기록 (Artifact Update & Logging)
 1.  모든 코드 구현 및 파일 변경이 완료되면 `./vibe_log.md` 파일을 최신화한다.

@@ -6,7 +6,7 @@
 - **재발 방지 (Prevention):** Docker Compose 기반의 MSA(Microservices Architecture)로 분리 구축하여, 추론 수요 급증 시 AI Worker 컨테이너만 개별적으로 스케일 아웃(Scale-out)할 수 있는 구조적 대비책 마련.
 
 ## 2. 전체 프로젝트 구조 (Project Components)
-본 프로젝트는 Oracle Cloud Infrastructure (OCI) Ampere A1 (ARM64) 상에서 구동되며, 4개의 핵심 컨테이너로 구성되어 있습니다.
+본 프로젝트는 Amazon Web Services (AWS) EC2 m7i-flex.large (x86_64) 상에서 구동되며, 4개의 핵심 컨테이너로 구성되어 있습니다.
 
 1. **Nginx & Frontend (React SPA)**
    - **역할:** 사용자의 HTTPS 트래픽을 최초로 받아 React 정적 파일(Vite 빌드 결과물)을 서빙하고, `/api` 경로를 FastAPI로 포워딩하는 리버스 프록시(Reverse Proxy).
@@ -22,11 +22,11 @@
 
 4. **AI Worker (Python / PyTorch)**
    - **역할:** Redis 큐를 `BRPOP`으로 대기하다 작업이 인입되면 국민건강영양조사(KNHANES) 모델을 바탕으로 만성질환 추론 수행.
-   - **특징:** ARM64 환경에 맞춰 최적화된 Docker 이미지로, FastAPI와 독립적으로 동작. 추론 결과를 Redis에 TTL을 주어 임시 저장함.
+   - **특징:** x86_64 환경에 맞춰 최적화된 Docker 이미지로, FastAPI와 독립적으로 동작. 추론 결과를 Redis에 TTL을 주어 임시 저장함.
 
 5. **CI/CD & Deployment Infrastructure**
-   - **역할:** 로컬 x86_64 개발 환경과 프로덕션 OCI ARM64 환경 간의 아키텍처 불일치를 극복하고 테스트/배포를 자동화.
-   - **특징:** GitHub Actions 기반의 린팅(Ruff) 및 로직 단위 테스트(Pytest) 파이프라인, `Docker Buildx`를 활용한 `--platform linux/arm64` 교차 컴파일(Cross-compilation) 스크립트화 적용.
+   - **역할:** 로컬 x86_64 개발 환경과 프로덕션 AWS x86_64 환경 간의 아키텍처 일치를 기반으로 테스트/배포를 자동화.
+   - **특징:** GitHub Actions 기반의 린팅(Ruff) 및 로직 단위 테스트(Pytest) 파이프라인, `Docker Buildx`를 활용한 `--platform linux/amd64` 빌드 스크립트화 적용.
 
 ## 3. 데이터 흐름 (Data Flow Sequence)
 
@@ -50,6 +50,6 @@
 *   **가용성(Availability):** AI Worker에 장애가 발생하여도 Redis 큐에 작업 지시가 보존됩니다. 컨테이너가 복구되면 큐에 쌓인 요청을 재개하므로 메시지 유실 없는 고가용성을 보장합니다.
 *   **확장성(Scalability):** 백엔드가 상태(DB)를 가지지 않는 Stateless 아키텍처이므로 트래픽 급증 시 무중단 확장이 유리합니다.
 *   **보안성(Security):** Redis를 외부로 노출하지 않아 침투 경로를 차단했습니다. 개인정보(주민번호 등)를 저장하지 않고 OAuth 본인인증 검증 플래그와 JWT만을 사용하므로 데이터 유출 타격을 최소화했습니다.
-*   **유지보수성 및 배포 안정성(Maintainability & Deployment Stability):** 개발 환경(x86_64)과 배포 환경(ARM64)의 아키텍처 차이로 인한 실행 오류(Exec Format Error)를 방지하기 위해 `Docker Buildx`를 스크립트에 통합하여 교차 컴파일을 강제합니다. 또한, No-DB 환경에서도 핵심 인증 및 예측 로직의 무결성을 보장하기 위해 `Pytest` 기반 단위 테스트를 구축하여 CI 파이프라인과 연동했습니다.
+*   **유지보수성 및 배포 안정성(Maintainability & Deployment Stability):** 개발 환경(x86_64)과 배포 환경(x86_64)의 아키텍처가 일치하므로 `Docker Buildx`를 사용하여 `--platform linux/amd64` 기반의 안정적인 이미지를 빌드합니다. 또한, No-DB 환경에서도 핵심 인증 및 예측 로직의 무결성을 보장하기 위해 `Pytest` 기반 단위 테스트를 구축하여 CI 파이프라인과 연동했습니다.
 *   **윤리적 편향성(Ethical Bias):** KNHANES 원시데이터 자체가 특정 연령대(고령층)나 특정 사회경제적 지위를 가진 집단의 표본 비중이 다를 수 있으므로, 모델 추론 시 이로 인한 특정 집단 편향성이 발생할 수 있음을 인지하고 사용자의 피드백을 지속적으로 수집해야 합니다.
 *   **인지적 개방성(Cognitive Openness):** '만성질환 결과'라는 무거운 의료 데이터를 단순히 확률로만 제공하기보다, AI 결과를 응용한 '생활습관 개선 챌린지'나 요리/운동 등을 접목하는 게이미피케이션(Gamification) 방식을 향후 서비스에 녹여내어 사용자의 심리적 장벽을 파격적으로 완화할 것을 권장합니다.

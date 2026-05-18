@@ -4,7 +4,7 @@ trigger: always_on
 
 # Background & Context
 1. Goal: 만성질환(알레르기비염, 고혈압, 당뇨병, 이상지질혈증) 예측 및 생활 개선 가이드라인을 제안하는 AI 서비스 구축
-2. Working Environment: Local Windows OS ('Anti-gravity' IDE 기반 Vibe Coding) -> Target: OCI Ampere A1 (ARM64), Oracle Linux 8/9
+2. Working Environment: Local Windows OS ('Anti-gravity' IDE 기반 Vibe Coding) -> Target: AWS EC2 m7i-flex.large (x86_64), Ubuntu Linux
 3. Project Evolution Roadmap:
 	- Phase 1 (CURRENT): DB-less 기반 웹 서비스 배포 (Stateless, Redis 기반 상태 및 큐 관리)
 	- Phase 2 (Future): RDBMS 통합을 통한 서비스 안정성 및 영구적 상태 관리 확보
@@ -15,15 +15,15 @@ trigger: always_on
 
 # Architecture & Tech Stack
 1. Infrastructure & CI/CD:
-	- Oracle Cloud Infrastructure (OCI) Ampere A1 (ARM64)
+	- AWS EC2 m7i-flex.large (x86_64 / amd64, 2vCPU, 8GiB RAM)
 	- Duck DNS, Nginx (Reverse Proxy), SSL (Certbot/ZeroSSL)
 	- GitHub Actions (Self-hosted Runner)
-	- Docker / Docker Buildx (Cross-Platform Multi-architecture 호환성 보장)
+	- Docker / Docker Buildx (Target Platform: linux/amd64 단일 아키텍처 강제)
 2. Backend & Task Management:
 	- FastAPI, uv (Package Manager)
 	- Redis (BRPOP/Blocking Queue) - 비동기 작업 큐 및 JWT 블랙리스트(TTL) 관리 전용
 3. AI Inference:
-	- AI Worker (MLP - Multilayer Perceptron), ARM64 최적화 컨테이너
+	- AI Worker (MLP - Multilayer Perceptron), x86_64(amd64) 최적화 컨테이너
 4. Frontend:
 	- React (Vite) + TypeScript (SPA)
 
@@ -55,13 +55,15 @@ trigger: always_on
 	- 시스템의 한 지점(예: Redis 연결 끊김, 외부 API 타임아웃)이 실패하더라도 전체 서비스가 중단되지 않도록 Fallback 패턴 및 명확한 에러 코드(HTTP 5xx, 4xx)를 반환하는 로직을 기본으로 탑재한다.
 5. User-Centric Transparency (사용자 중심 투명성)
 	- 클라이언트(프론트엔드)로 반환되는 모든 결과 메시지 및 가이드라인은 데이터에 기반하여 직관적으로 작성하며, 의료적 진단을 대체할 수 없다는 한계를 명확히 내포하도록 구조화한다.
+6. Cost-Aware Engineering (비용 인지 엔지니어링)
+	- 한정된 AWS 프로모션 크레딧 내에서 운영됨을 인지하고, 단일 m7i-flex.large 인스턴스(메모리 8GB)에서 Nginx, React, FastAPI, Redis, AI Worker 컨테이너가 모두 안정적으로 동작할 수 있도록 각 컨테이너의 메모리 제한(Memory Limits) 및 경량화를 최우선으로 설계한다.
 
 # Task Orchestration
 1. Task Decomposition & Mapping: 
 	- 요청사항 분석 후 Architecture 영역(React, FastAPI, Nginx, Redis 등)별 최소 작업 단위로 분해
 	- 분해된 단위가 'Zero PII' 원칙에 위배되지 않는지 철저히 사전 검증
 2. Logic Design & Draft: 
-	- Stateless, 비동기, 다중 아키텍처 호환 지침을 준수하는 엔지니어링 해결책 초안 설계
+	- Stateless, 비동기, 다중 아키텍처 호환, 비용 효율화 지침을 준수하는 엔지니어링 해결책 초안 설계
 
 # Logging Protocol
 1. 모든 작업 완료 또는 변경 시 `./vibe_log.md` 업데이트 (파일 부재 시 즉시 생성).

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import diagramImage from '../../asets/images/Architecture_Diagram.png';
-import workflowImage from '../../asets/images/Architecture_Workflow.png';
+import diagramImage from '../../asets/images/Architecture_Diagram_AWS.png';
+import workflowImage from '../../asets/images/Architecture_Workflow_AWS.png';
 
 export function TechStackPage() {
   const [isFlipped, setIsFlipped] = useState(false);
@@ -13,8 +13,8 @@ export function TechStackPage() {
           AWS 클라우드 환경에서 Docker 컨테이너 기반으로 운영되며, React SPA → Nginx → FastAPI → Redis → AI Worker(MLP)의 비동기 파이프라인으로 구성됩니다.
         </p>
       </div>
-      
-      <div 
+
+      <div
         className="mb-8 cursor-pointer w-full group"
         onClick={() => setIsFlipped(!isFlipped)}
         style={{ perspective: "1000px" }}
@@ -22,25 +22,25 @@ export function TechStackPage() {
         <div className="text-center mb-2 text-sm text-slate-500 animate-pulse">
           클릭하여 {isFlipped ? '아키텍처 다이어그램' : '워크플로우'} 보기
         </div>
-        <div 
-          className="relative w-full rounded-2xl border border-slate-200 shadow-sm bg-white transition-transform duration-700 ease-in-out" 
-          style={{ 
-            transformStyle: "preserve-3d", 
+        <div
+          className="relative w-full rounded-2xl border border-slate-200 shadow-sm bg-white transition-transform duration-700 ease-in-out"
+          style={{
+            transformStyle: "preserve-3d",
             transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
             aspectRatio: "16/9"
           }}
         >
-          <img 
-            src={diagramImage} 
-            alt="System Architecture" 
+          <img
+            src={diagramImage}
+            alt="System Architecture"
             className="absolute top-0 left-0 w-full h-full object-contain p-4 rounded-2xl bg-white"
-            style={{ backfaceVisibility: "hidden" }} 
+            style={{ backfaceVisibility: "hidden" }}
           />
-          <img 
-            src={workflowImage} 
-            alt="Architecture Workflow" 
+          <img
+            src={workflowImage}
+            alt="Architecture Workflow"
             className="absolute top-0 left-0 w-full h-full object-contain p-4 rounded-2xl bg-white"
-            style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }} 
+            style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
           />
         </div>
       </div>

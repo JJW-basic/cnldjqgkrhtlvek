@@ -1,7 +1,7 @@
 # 만성질환 예측 AI 서비스 (AI Healthcare Service)
 
 이 프로젝트는 KNHANES(국민건강영양조사) 데이터를 기반으로 4가지 만성질환(알레르기비염, 고혈압, 당뇨병, 이상지질혈증)의 위험도를 예측하고 생활 개선 가이드라인을 제공하는 AI 서비스입니다. 
-전체 시스템은 **Stateless 기반의 Zero PII 아키텍처**로 설계되어 개인정보를 수집/저장하지 않으며, **Oracle Cloud Infrastructure (OCI) Ampere A1 (ARM64)** 인프라에 최적화되어 있습니다.
+전체 시스템은 **Stateless 기반의 Zero PII 아키텍처**로 설계되어 개인정보를 수집/저장하지 않으며, **Amazon Web Services (AWS) EC2 m7i-flex.large (x86_64)** 인프라에 최적화되어 있습니다.
 
 ---
 
@@ -10,7 +10,7 @@
 - **Zero PII & Stateless Architecture**: 외부 OAuth 인증(Kakao, Naver)만을 활용하며, 데이터베이스(RDBMS)를 사용하지 않아 개인정보(이름, 나이 등) 수집을 원천적으로 배제합니다.
 - **비동기 AI 추론 (Task Queue)**: FastAPI 서버와 PyTorch AI Worker 간의 결합도를 낮추고 병목 현상을 방지하기 위해 Redis 기반 비동기 큐(`BRPOP`)를 통해 통신합니다.
 - **프론트엔드 (React SPA)**: Vite와 TypeScript로 구축된 직관적인 대시보드와 KNHANES 80문항 설문 인터페이스 제공.
-- **OCI ARM64 최적화**: Docker Buildx를 활용한 다중 아키텍처 지원 및 Oracle Linux 8/9 환경에서의 원활한 구동을 보장합니다.
+- **AWS x86_64 최적화**: Docker Buildx를 활용한 다중 아키텍처 지원 및 Ubuntu Linux 환경에서의 원활한 구동을 보장합니다.
 - **자동화된 배포 파이프라인**: GitHub Actions (Self-hosted Runner)와 DuckDNS, Certbot(SSL)을 연동한 무중단 자동화 배포.
 
 ---
@@ -36,7 +36,7 @@
 ├── nginx/              # Nginx 설정 파일 (리버스 프록시 및 SPA 서빙)
 ├── scripts/            # 배포, 인증서 갱신(Certbot), CI 쉘 스크립트
 ├── docker-compose.yml       # 로컬 개발용 Docker Compose 설정
-├── docker-compose.prod.yml  # 운영 배포용 OCI ARM64 최적화 설정
+├── docker-compose.prod.yml  # 운영 배포용 AWS x86_64 최적화 설정
 └── pyproject.toml      # uv 기반 백엔드/AI 의존성 관리 설정
 ```
 
@@ -92,10 +92,10 @@ uv run python -m ai_worker.main
 docker-compose up -d --build
 ```
 
-### 운영 배포 환경 (Production - OCI)
+### 운영 배포 환경 (Production - AWS EC2)
 
-본 시스템은 OCI Ampere A1 환경을 타겟으로 `docker-compose.prod.yml`을 사용하여 배포됩니다.
-내장된 배포 스크립트를 통해 원클릭으로 ARM64 환경에 대응할 수 있습니다.
+본 시스템은 AWS EC2 (x86_64) 환경을 타겟으로 `docker-compose.prod.yml`을 사용하여 배포됩니다.
+내장된 배포 스크립트를 통해 원클릭으로 x86_64 환경에 대응할 수 있습니다.
 
 ```bash
 docker-compose -f docker-compose.prod.yml up -d --build

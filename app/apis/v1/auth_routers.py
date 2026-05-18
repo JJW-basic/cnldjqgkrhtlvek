@@ -3,7 +3,8 @@ from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Cookie, Depends, HTTPException, status
-from fastapi.responses import JSONResponse as Response, RedirectResponse
+from fastapi.responses import JSONResponse as Response
+from fastapi.responses import RedirectResponse
 
 from app.core.config import Config
 from app.dtos.auth import OAuthLoginResponse, TokenRefreshResponse

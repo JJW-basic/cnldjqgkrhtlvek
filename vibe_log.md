@@ -820,3 +820,23 @@
 	- [기능]: `ConsentPage.tsx`의 컨테이너를 `<img>` 태그로 수정하여 `logo.png` 파일이 정상적으로 노출되도록 반영함. 이후 `npm run build` 및 `docker compose restart nginx` 명령어를 수행하여 변경된 프론트엔드 자산을 운영 서버에 최신화함.
 * **결과 확인:** 동의 페이지 접속 시 대체 아이콘이 아닌 설정한 로고 이미지가 정상 렌더링됨.
 * **참고:** 사용자 요청에 따른 잔여 UI 수정 및 빌드 반영.
+
+## [2026-05-18 15:17 KST] - (성공✅) OCI 아키텍처에서 AWS 아키텍처로 배포 환경 전환 완료
+* **변경된 파일:** `docker-compose.prod.yml`, `scripts/deployment.sh`, `scripts/certbot.sh`, `nginx/prod_http.conf`, `nginx/prod_https.conf`, `README.md`, `PROJECT_STRUCTURE_ANALYSIS.md`, `DEPLOYMENT_GUIDE.md`
+* **핵심 변경 사항:**
+	- [논리]: OCI(Oracle Cloud Infrastructure) Ampere A1 (ARM64) 기반 배포 계획 차질로 인해 AWS(Amazon Web Services) EC2 m7i-flex.large (x86_64) 기반으로 배포 인프라 방향성 수정. 플랫폼 아키텍처가 ARM64에서 x86_64(amd64)로 변경됨에 따라 배포 스크립트 및 관련 문서를 AWS 환경에 맞게 일원화함.
+	- [기능]: `docker-compose.prod.yml` 플랫폼을 `linux/arm64`에서 `linux/amd64`로 변경. `scripts/deployment.sh` 빌드 대상을 `linux/amd64`로 교체. Nginx 프록시 설정의 `OCI_PUBLIC_IP` 관련 주석을 AWS 가이드로 변경. `DEPLOYMENT_GUIDE_OCI.md`를 `DEPLOYMENT_GUIDE.md`로 이름 변경 후 AWS EC2 관련 가이드라인으로 전면 개편. README 및 구조 분석 마크다운 내 OCI 참조를 모두 AWS로 업데이트.
+* **결과 확인:** `uv run pytest app` 실행하여 전체 14개 테스트 통과. `docker compose -f docker-compose.prod.yml config` 검증 완료.
+* **참고:** 모든 아키텍처 문서 및 스크립트가 OCI에서 AWS로 원활하게 마이그레이션됨.
+
+## [2026-05-18 18:25 KST] - (성공✅) 전체 코드 점검 및 배포 안정성 개선
+* **변경된 파일:** `app/tests/test_auth.py`, `envs/.prod.env`, `envs/example.prod.env`, `scripts/deployment.sh`, `scripts/certbot.sh`, `docker-compose.prod.yml`, `pyproject.toml`
+* **핵심 변경 사항:**
+	- [논리 1 — Ruff 린팅]: `ruff check --fix` 17개 자동 수정 + test_auth.py E402 수동 수정. All checks passed.
+	- [논리 2 — prod.env 보완]: `SECRET_KEY`, `COOKIE_DOMAIN`, OAuth 자격증명, `ACCESS/REFRESH_TOKEN_EXPIRE_MINUTES`, `ALLOWED_ORIGINS` 전수 추가. 미설정 시 JWT 재시작마다 무효화 버그 사전 차단.
+	- [논리 3 — sed Linux 호환성]: `deployment.sh`, `certbot.sh`의 `sed -i ''` (BSD) → `sed -i` (GNU/Linux). EC2(Ubuntu) 실행 오류 방지.
+	- [논리 4 — Docker 로그인 실패 exit]: `deployment.sh` 로그인 실패 시 `exit 1` 미적용 버그 수정. 자격증명 오류 상태로 빌드 진행 차단.
+	- [논리 5 — Nginx 이미지 버전 고정]: `nginx:latest` → `nginx:1.27-alpine`. 배포 환경 재현성 확보. `dist/` SCP 안내 주석 추가.
+	- [논리 6 — pyproject 정리]: 레거시 `db/migrations/*` Ruff 룰 제거. 미사용 `sentence-transformers` 의존성 제거(메모리 절감).
+* **결과 확인:** `uv run pytest app` 14/14 통과. `uv run ruff check .` All checks passed. `docker compose config` 문법 검증 완료.
+* **참고:** 로컬 서비스 동작 정상. 배포 스크립트 및 환경변수 파일이 AWS EC2 기준으로 완전히 정렬됨.

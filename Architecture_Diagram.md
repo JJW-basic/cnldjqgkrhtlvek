@@ -2,7 +2,7 @@
 graph TD
     User([👨‍💻 사용자])
     
-    subgraph OCI_ENV ["☁️ Oracle Cloud Infrastructure (Ampere A1 ARM64)"]
+    subgraph AWS_ENV ["☁️ Amazon Web Services (EC2 m7i-flex.large x86_64)"]
         direction TB
         Nginx[Nginx Reverse Proxy<br>React SPA 서빙]
         Certbot[Certbot<br>SSL 자동 갱신]
@@ -25,7 +25,7 @@ graph TD
     subgraph CI_CD_Pipeline [CI/CD 및 배포 자동화]
         direction TB
         Github[GitHub Actions<br>Pytest / Ruff 검증]
-        Buildx[Docker Buildx<br>ARM64 교차 컴파일]
+        Buildx[Docker Buildx<br>x86_64 단일 빌드]
     end
 
     %% Flow connections
@@ -47,7 +47,7 @@ graph TD
     React -. "11. 대시보드 시각화" .-> User
     
     Github -- "1. 테스트 통과 후 빌드" --> Buildx
-    Buildx -- "2. 이미지 푸시 및 OCI 배포" --> OCI_ENV
+    Buildx -- "2. 이미지 푸시 및 AWS 배포" --> AWS_ENV
     
     classDef infra fill:#f8fafc,stroke:#cbd5e1,stroke-width:2px,stroke-dasharray:5 5;
     classDef proxy fill:#f1f5f9,stroke:#64748b,stroke-width:2px;
@@ -57,7 +57,7 @@ graph TD
     classDef ai fill:#dcfce3,stroke:#22c55e,stroke-width:2px,color:#14532d;
     classDef external fill:#fff1f2,stroke:#f43f5e,stroke-width:2px;
     
-    class OCI_ENV infra;
+    class AWS_ENV infra;
     class Nginx,Certbot,DuckDNS proxy;
     class React frontend;
     class FastAPI backend;

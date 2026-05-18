@@ -24,10 +24,10 @@ build_and_push () {
   else
     tag_base="ai"
   fi
-  echo "${COLOR_BLUE}${name} Docker Image Build & Push Start (ARM64).${COLOR_NC}"
-  # 빌드 환경(Windows/Mac)과 배포 환경(OCI ARM64)이 다를 수 있으므로
-  # Docker Buildx를 사용하여 linux/arm64 아키텍처로 빌드와 동시에 푸시합니다.
-  docker buildx build --platform linux/arm64 -t ${docker_user}/${docker_repo}:${tag_base}-${tag} -f ${dockerfile} ${context} --push
+  echo "${COLOR_BLUE}${name} Docker Image Build & Push Start (x86_64).${COLOR_NC}"
+  # 빌드 환경(Windows/Mac)과 배포 환경(AWS x86_64)이 다를 수 있으므로
+  # Docker Buildx를 사용하여 linux/amd64 아키텍처로 빌드와 동시에 푸시합니다.
+  docker buildx build --platform linux/amd64 -t ${docker_user}/${docker_repo}:${tag_base}-${tag} -f ${dockerfile} ${context} --push
 
   echo "${COLOR_GREEN}${name} Done.${COLOR_NC}"
   echo ""
@@ -44,6 +44,7 @@ echo ""
 echo "${COLOR_BLUE}Docker login${COLOR_NC}"
 if ! docker login -u ${docker_user} -p ${docker_pw} ; then
   echo "${COLOR_RED}도커 로그인에 실패했습니다. 도커 유저네임과 비밀번호를 확인해주세요.${COLOR_NC}"
+  exit 1
 fi
 echo "${COLOR_GREEN}도커 로그인 성공!${COLOR_NC}"
 echo ""
@@ -90,11 +91,11 @@ echo "${COLOR_BLUE}배포 대상 서비스: ${DEPLOY_SERVICES[*]}${COLOR_NC}"
 echo ""
 
 # ---------- SSH 접속 정보 입력 prompt ----------
-echo "${COLOR_BLUE}OCI 인스턴스 생성시 발급받은 ssh key 파일의 파일명을 입력하세요.(ex. ai_health_key.pem)${COLOR_NC}"
+echo "${COLOR_BLUE}AWS EC2 인스턴스 생성시 발급받은 ssh key 파일의 파일명을 입력하세요.(ex. ai_health_key.pem)${COLOR_NC}"
 read -p "SSH 키 파일명: " ssh_key_file
 echo ""
 
-echo "${COLOR_BLUE}OCI 인스턴스의 Public IP를 입력하세요.${COLOR_NC}"
+echo "${COLOR_BLUE}AWS EC2 인스턴스의 Public IP를 입력하세요.${COLOR_NC}"
 read -p "VM-IP: " ec2_ip
 echo ""
 
@@ -104,24 +105,25 @@ echo "2) https 사용중"
 read -p "선택(ex. 1): " is_https
 echo ""
 
-# ---------- OCI 인스턴스 내에 배포 준비 파일 복사 ----------
+# ---------- AWS EC2 인스턴스 내에 배포 준비 파일 복사 ----------
 scp -i ~/.ssh/${ssh_key_file} envs/.prod.env ubuntu@${ec2_ip}:~/project/.env
 scp -i ~/.ssh/${ssh_key_file} docker-compose.prod.yml ubuntu@${ec2_ip}:~/project/docker-compose.yml
 if [[ "$is_https" == "1" ]]; then
   # ---------- prod_http.conf 파일의 server_name 자동 수정 (http 전용) ----------
-  sed -i '' "s/server_name .*/server_name ${ec2_ip};/g" nginx/prod_http.conf
+  # ⚠️ Linux(GNU sed) 호환 포맷: sed -i (미 macOS BSD sed: sed -i '')
+  sed -i "s/server_name .*/server_name ${ec2_ip};/g" nginx/prod_http.conf
   scp -i ~/.ssh/${ssh_key_file} nginx/prod_http.conf ubuntu@${ec2_ip}:~/project/nginx/default.conf
 else
   echo "${COLOR_BLUE} 사용중인 Duck DNS 도메인을 입력하세요. (ex. your-name.duckdns.org)${COLOR_NC}"
   read -p "Domain: " domain
   # ---------- prod_https.conf 파일의 server_name, ssl_certificate 자동 수정 ----------
-  sed -i '' "s/server_name .*/server_name ${domain};/g" nginx/prod_https.conf
-  sed -i '' "s|/etc/letsencrypt/live/[^/]*|/etc/letsencrypt/live/${domain}|g" nginx/prod_https.conf
+  sed -i "s/server_name .*/server_name ${domain};/g" nginx/prod_https.conf
+  sed -i "s|/etc/letsencrypt/live/[^/]*|/etc/letsencrypt/live/${domain}|g" nginx/prod_https.conf
   scp -i ~/.ssh/${ssh_key_file} nginx/prod_https.conf ubuntu@${ec2_ip}:~/project/nginx/default.conf
 fi
 
-# ---------- OCI 인스턴스 배포 자동화 ----------
-echo "${COLOR_BLUE}OCI 인스턴스에 SSH 접속을 시도합니다.${COLOR_NC}"
+# ---------- AWS EC2 인스턴스 배포 자동화 ----------
+echo "${COLOR_BLUE}AWS EC2 인스턴스에 SSH 접속을 시도합니다.${COLOR_NC}"
 chmod 400 ~/.ssh/${ssh_key_file}
 ssh -i ~/.ssh/${ssh_key_file} ubuntu@${ec2_ip} \
   "DOCKER_USERNAME=${docker_user} \

@@ -1,9 +1,9 @@
-import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.dependencies.security import get_request_user
+from app.main import app
 from app.services.prediction import PredictionService
+
 
 # Mock user for overriding dependency
 def mock_get_request_user():

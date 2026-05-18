@@ -1,6 +1,6 @@
 # AI HealthCare System Architecture & Flow
 
-본 문서는 현재 Oracle Cloud Infrastructure (OCI) 기반으로 최적화된 만성질환 예측 AI 서비스의 전체 시스템 구성도 및 데이터 흐름을 정의합니다.
+본 문서는 현재 Amazon Web Services (AWS) EC2 기반으로 최적화된 만성질환 예측 AI 서비스의 전체 시스템 구성도 및 데이터 흐름을 정의합니다.
 
 ## 1. 프로젝트 개요 (Overview)
 - **목표:** 만성질환 예측 AI 서비스 구축
@@ -8,12 +8,12 @@
 - **MLP 추론 모델:** `chronic_predictor.py`
 
 ## 2. 기술 스택 (Tech Stack)
-- **Infrastructure:** Oracle Cloud Infrastructure (OCI) Ampere A1 (ARM64)
+- **Infrastructure:** AWS EC2 m7i-flex.large (x86_64 / amd64)
 - **Networking & Security:** Duck DNS, Nginx (Reverse Proxy), SSL (Certbot/ZeroSSL)
 - **Auth:** OAuth 2.0 (Kakao, Naver), JWT (JSON Web Token)
 - **Backend:** FastAPI, Docker, uv (Package Manager)
 - **Asynchronous Task Queue:** Redis (BRPOP/Blocking Queue)
-- **AI:** AI Inference Worker (MLP), Dockerized for ARM64
+- **AI:** AI Inference Worker (MLP), Dockerized for x86_64 (amd64)
 - **Frontend:** React (Vite), TypeScript
 - **Testing:** Pytest, HTTPX (Unit Testing for Stateless API)
 - **Deployment Tool:** GitHub Actions, Docker Buildx (Cross-compilation for ARM64)
@@ -40,14 +40,14 @@
 
 ### 3.2 아키텍처 다이어그램 (Architecture Diagram)
 
-시각적인 시스템 아키텍처 및 데이터 흐름도는 별도 분리된 [`Architecture_Diagram.md`](./Architecture_Diagram.md) 파일을 참조하십시오. 해당 다이어그램은 OCI 환경, 무상태 백엔드, 비동기 AI 파이프라인 및 CI/CD 워크플로우 전반을 도식화하고 있습니다.
+시각적인 시스템 아키텍처 및 데이터 흐름도는 별도 분리된 [`Architecture_Diagram.md`](./Architecture_Diagram.md) 파일을 참조하십시오. 해당 다이어그램은 AWS EC2 환경, 무상태 백엔드, 비동기 AI 파이프라인 및 CI/CD 워크플로우 전반을 도식화하고 있습니다.
 
 ### 3.3 CI/CD 및 배포 파이프라인 (CI/CD Pipeline)
 1) **코드 검증 (Testing & Linting)**
    - GitHub Actions 환경에서 `Ruff`를 통한 코드 린팅과 `Pytest`를 통한 단위 테스트가 자동 수행됩니다.
    - FastAPI 백엔드 및 인증 로직의 무결성을 철저히 검증한 후 다음 빌드 단계로 진행됩니다.
-2) **교차 컴파일 (Cross-Compilation)**
-   - 로컬 개발 환경(x86_64)과 타겟 운영 서버(OCI ARM64) 간의 아키텍처 불일치로 인한 실행 오류(Exec Format Error)를 근본적으로 방지합니다.
-   - 배포 스크립트(`deployment.sh`) 내부에서 `Docker Buildx`를 사용하여 `--platform linux/arm64` 기반의 이미지를 안전하게 빌드하고 Docker Hub에 푸시합니다.
+2) **단일 아키텍처 빌드 (Single Architecture Build)**
+   - 로컬 개발 환경(x86_64)과 타겟 운영 서버(AWS EC2 x86_64) 간의 아키텍처 일치하므로 교차 컴파일 오버헤드가 제거됩니다.
+   - 배포 스크립트(`deployment.sh`) 내부에서 `Docker Buildx`를 사용하여 `--platform linux/amd64` 기반의 이미지를 안전하게 빌드하고 Docker Hub에 푸시합니다.
 3) **운영 서버 배포 (Deployment)**
-   - 빌드된 최신 이미지를 OCI 서버에서 `docker compose` 명령어로 pull 받아, 무상태(Stateless) 기반의 무중단 아키텍처 형태로 컨테이너를 재실행합니다.
+   - 빌드된 최신 이미지를 AWS EC2 인스턴스에서 `docker compose` 명령어로 pull 받아, 무상태(Stateless) 기반의 무중단 아키텍처 형태로 컨테이너를 재실행합니다.
