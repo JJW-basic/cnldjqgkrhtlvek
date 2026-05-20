@@ -25,7 +25,7 @@ graph TD
     subgraph CI_CD_Pipeline [CI/CD 및 배포 자동화]
         direction TB
         Github[GitHub Actions<br>Pytest / Ruff 검증]
-        Buildx[Docker Buildx<br>x86_64 단일 빌드]
+        Buildx[Docker Buildx<br>linux/amd64 단일 빌드]
     end
 
     %% Flow connections
@@ -39,9 +39,9 @@ graph TD
     FastAPI -- "4. JWT 발급" --> React
     
     React -- "5. 80문항 제출 (POST)" --> FastAPI
-    FastAPI -- "6. Task Enqueue" --> Redis
+    FastAPI -- "6. Task Enqueue (LPUSH)" --> Redis
     Redis -- "7. BRPOP 대기 및 Fetch" --> AIWorker
-    AIWorker -- "8. 추론 결과 반환" --> Redis
+    AIWorker -- "8. 추론 결과 저장 (TTL)" --> Redis
     FastAPI -- "9. Polling" --> Redis
     FastAPI -- "10. 분석 결과 응답" --> React
     React -. "11. 대시보드 시각화" .-> User
@@ -54,7 +54,7 @@ graph TD
     classDef frontend fill:#eff6ff,stroke:#3b82f6,stroke-width:2px,color:#1e40af;
     classDef backend fill:#e0f2fe,stroke:#0ea5e9,stroke-width:2px,color:#075985;
     classDef db fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#92400e;
-    classDef ai fill:#dcfce3,stroke:#22c55e,stroke-width:2px,color:#14532d;
+    classDef ai fill:#dcfce7,stroke:#22c55e,stroke-width:2px,color:#14532d;
     classDef external fill:#fff1f2,stroke:#f43f5e,stroke-width:2px;
     
     class AWS_ENV infra;
@@ -66,4 +66,4 @@ graph TD
     class OAuth external;
     class External_Services external;
     class CI_CD_Pipeline proxy;
-    ```
+```

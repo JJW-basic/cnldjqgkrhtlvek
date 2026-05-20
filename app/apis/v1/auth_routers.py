@@ -1,7 +1,9 @@
 import logging
+import secrets
 from typing import Annotated
 
 import httpx
+import redis as redis_lib
 from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from fastapi.responses import JSONResponse as Response
 from fastapi.responses import RedirectResponse
@@ -13,6 +15,21 @@ from app.services.jwt import JwtService
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 config = Config()
 logger = logging.getLogger(__name__)
+
+# 모듈 레벨 단일 Redis 클라이언트 (연결 재사용)
+_redis_client: redis_lib.Redis | None = None
+
+
+def _get_redis() -> redis_lib.Redis:
+    """Redis 클라이언트 싱글턴 반환 (지연 초기화)"""
+    global _redis_client
+    if _redis_client is None:
+        _redis_client = redis_lib.Redis(
+            host=config.REDIS_HOST,
+            port=config.REDIS_PORT,
+            decode_responses=True,
+        )
+    return _redis_client
 
 
 # ── 카카오 로그인 시작 ──────────────────────────────────────────────────────────
@@ -141,13 +158,8 @@ async def kakao_callback(
 async def naver_login() -> RedirectResponse:
     if not config.NAVER_CLIENT_ID:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="네이버 OAuth가 설정되지 않았습니다.")
-    import secrets
-
-    import redis as redis_lib
-
     state = secrets.token_urlsafe(16)
-    r = redis_lib.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, decode_responses=True)
-    r.setex(f"oauth:naver:state:{state}", 300, "1")  # TTL 5분
+    _get_redis().setex(f"oauth:naver:state:{state}", 300, "1")  # TTL 5분
     url = (
         "https://nid.naver.com/oauth2.0/authorize"
         f"?client_id={config.NAVER_CLIENT_ID}"
@@ -166,11 +178,8 @@ async def naver_callback(
     jwt_service: Annotated[JwtService, Depends(JwtService)],
 ) -> Response:
     # 0) Redis state 검증 (CSRF 방어)
-    import redis as redis_lib
-
-    r = redis_lib.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, decode_responses=True)
     state_key = f"oauth:naver:state:{state}"
-    if not r.getdel(state_key):
+    if not _get_redis().getdel(state_key):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="유효하지 않거나 만료된 인증 요청입니다. 다시 로그인해 주세요.")
 
     # 1) 인가 코드 → 네이버 액세스 토큰 교환

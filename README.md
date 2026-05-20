@@ -10,7 +10,7 @@
 - **Zero PII & Stateless Architecture**: 외부 OAuth 인증(Kakao, Naver)만을 활용하며, 데이터베이스(RDBMS)를 사용하지 않아 개인정보(이름, 나이 등) 수집을 원천적으로 배제합니다.
 - **비동기 AI 추론 (Task Queue)**: FastAPI 서버와 PyTorch AI Worker 간의 결합도를 낮추고 병목 현상을 방지하기 위해 Redis 기반 비동기 큐(`BRPOP`)를 통해 통신합니다.
 - **프론트엔드 (React SPA)**: Vite와 TypeScript로 구축된 직관적인 대시보드와 KNHANES 80문항 설문 인터페이스 제공.
-- **AWS x86_64 최적화**: Docker Buildx를 활용한 다중 아키텍처 지원 및 Ubuntu Linux 환경에서의 원활한 구동을 보장합니다.
+- **AWS x86_64 최적화**: Docker Buildx를 활용하여 `--platform linux/amd64` 단일 타겟으로 빌드하며, 로컬 개발 환경(Windows/Mac)의 OS에 무관하게 항상 EC2 호환 이미지를 생성합니다.
 - **자동화된 배포 파이프라인**: GitHub Actions (Self-hosted Runner)와 DuckDNS, Certbot(SSL)을 연동한 무중단 자동화 배포.
 
 ---

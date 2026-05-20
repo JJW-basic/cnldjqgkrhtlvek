@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
+import { CheckCircle, Loader2 } from "lucide-react";
 import { getTokenSync } from "../lib/tokenStore";
 
 /**
@@ -14,6 +15,8 @@ import { getTokenSync } from "../lib/tokenStore";
 export function OAuthCallbackPage() {
   const navigate = useNavigate();
   const { provider } = useParams<{ provider: string }>();
+
+  const [isSuccess, setIsSuccess] = useState(false);
 
   useEffect(() => {
     // 이미 인증된 경우 즉시 서비스 페이지로
@@ -42,16 +45,32 @@ export function OAuthCallbackPage() {
     if (state) sessionStorage.setItem("oauth_pending_state", state);
     sessionStorage.removeItem(flagKey);
 
-    navigate("/consent", { replace: true });
+    // 성공 애니메이션 표출 후 이동
+    setIsSuccess(true);
+    setTimeout(() => {
+      navigate("/consent", { replace: true });
+    }, 1000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center">
-      <div className="text-center text-white">
-        <div className="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-blue-200">인증 처리 중...</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
+      {!isSuccess ? (
+        <div className="text-center text-white animate-fade-in flex flex-col items-center">
+          <Loader2 className="w-12 h-12 text-blue-400 animate-spin mx-auto mb-4" />
+          <p className="text-blue-200">인증 처리 중...</p>
+        </div>
+      ) : (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full flex flex-col items-center transform transition-all duration-300 scale-100 opacity-100 translate-y-0">
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4 shadow-sm">
+              <CheckCircle className="w-8 h-8 text-green-500" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">인증 성공!</h3>
+            <p className="text-slate-500 text-sm">잠시 후 다음 단계로 이동합니다.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

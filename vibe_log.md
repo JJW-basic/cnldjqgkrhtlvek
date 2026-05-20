@@ -840,3 +840,61 @@
 	- [논리 6 — pyproject 정리]: 레거시 `db/migrations/*` Ruff 룰 제거. 미사용 `sentence-transformers` 의존성 제거(메모리 절감).
 * **결과 확인:** `uv run pytest app` 14/14 통과. `uv run ruff check .` All checks passed. `docker compose config` 문법 검증 완료.
 * **참고:** 로컬 서비스 동작 정상. 배포 스크립트 및 환경변수 파일이 AWS EC2 기준으로 완전히 정렬됨.
+
+## [2026-05-18 19:30 KST] - (성공✅) 글로벌 내비게이션 바(GNB) 수정 및 대시보드 직접 접근 차단 로직 구현
+* **변경된 파일:** `src/app/components/Layout.tsx`, `src/app/components/SurveyPage.tsx`, `src/app/components/DashboardPage.tsx`
+* **핵심 변경 사항:**
+	- [논리]: 로그인 후 보이는 글로벌 내비게이션 바(GNB)의 불필요한 '대시보드' 메뉴를 제거하고, 'AI 모델' 및 '기술 스택'으로 직접 편리하게 접근할 수 있도록 UI를 개선했습니다. 또한 사용자가 설문 진행 없이 직접 URL(`/dashboard`)을 쳐서 대시보드 페이지에 잔존 캐시 등으로 우회 진입하는 것을 원천적으로 차단하기 위해 React Router의 transition state를 활용한 2중 검증 및 라우트 보호 구조를 적용했습니다.
+	- [기능]: 
+		1. `Layout.tsx` GNB의 메뉴 목록에서 '대시보드' 항목을 삭제하고, '서비스'를 '메인페이지'로 변경하며, 바로 'AI 모델'과 '기술 스택'으로 직접 이동 가능하도록 맵핑 및 변경 적용.
+		2. `SurveyPage.tsx`에서 설문 제출(`handleSubmit` 또는 `handleAutoFillAndAnalyze`) 시 `/dashboard`로 네비게이션할 때 `{ state: { fromSurvey: true } }` 트랜지션 플래그 전달하도록 수정.
+		3. `DashboardPage.tsx`에서 `location.state?.fromSurvey` 값을 확인하도록 `useLocation` 추가. 설문을 통해 정상 진입하지 않고 URL 직접 입력 등으로 들어온 경우, 세션 캐시가 존재하더라도 로딩 및 데이터 처리를 무시하고 즉시 종료하여 '분석 결과가 없습니다' 경고 화면 및 설문 유도 버튼을 노출하도록 차단 로직 구현.
+* **결과 확인:** `npm run build`를 통해 frontend 빌드가 에러 없이(TypeScript 타입 정합성 포함) 통과되었으며, 백엔드 테스트(pytest 14개 통과) 및 docker compose 스택 빌드가 정상적으로 완료되었음을 검증했습니다.
+* **참고:** 사용자 편의성 및 데이터 접근 보안 요건 충족.
+
+## [2026-05-20 18:20 KST] - (성공✅) 설문 분석 요청 접근성 및 초기화 버튼 UI/UX 개선
+* **변경된 파일:** `src/app/components/SurveyPage.tsx`
+* **핵심 변경 사항:**
+	- [논리]: 설문 응답 완료 시 사용자가 어떤 섹션(1~22)에 있더라도 즉시 '분석 요청'을 수행할 수 있도록 네비게이션 편의성을 보장하고, 기존에 글자 크기가 작고 배경색과 구분이 어려웠던 '초기화' 버튼을 사용자가 쉽게 인지하되 지나치게 자극적이지 않은 soft-warning 톤으로 디자인을 리팩터링했습니다.
+	- [기능]:
+		1. **분석 요청 버튼 접근성 개선:** 설문 진행률이 100%에 도달하면 모든 섹션(1~22)의 하단 네비게이션 바에 '분석 요청' 버튼이 활성화 상태로 상시 표출되도록 분기 로직을 전면 수정했습니다.
+		2. **초기화 버튼 UI/UX 시각성 강화:** 섹션 헤더 우측의 '초기화' 버튼을 기존 slate-400 단색의 무배경 구조에서, 옅은 로즈 톤 테두리와 배경(`border-rose-100 bg-rose-50/50`) 및 로즈 색상 텍스트(`text-rose-600`)가 조화된 디자인으로 변경하고, 크기 및 아이콘을 조정(`text-xs sm:text-sm`, `w-3.5 h-3.5`)하여 시각적 직관성을 향상했습니다.
+		3. **자동 복원 배너 내 버튼 최적화:** 복원 배너의 '이어하기' 버튼을 기본 파란색 버튼(`bg-blue-600 text-white`)으로, '초기화' 버튼을 연한 로즈색 버튼(`border-rose-200 bg-rose-50 text-rose-700`)으로 명확히 구분하여 인지 부하를 줄였습니다.
+* **결과 확인:** `npm run build` 실행 결과 TypeScript 타입 에러 없이 성공적으로 정적 빌드가 완료되었음을 검증했습니다.
+* **참고:** 사용자 피드백에 기반한 설문 화면 UI/UX 편의성 향상.
+
+## [2026-05-20 18:50 KST] - (성공✅) 초기화 2중 컨펌, 비동기 추론 로딩 스크린 및 임시저장 복원 UX 개선
+* **변경된 파일:** `src/app/components/SurveyPage.tsx`
+* **핵심 변경 사항:**
+	- [논리]: 사용자의 실수로 인한 데이터 삭제 방지를 위해 '초기화' 동작에 2중 컨펌 단계를 도입하고, 비동기 AI 추론 시 스피너의 이질감을 극복하기 위해 풀스크린 글라스모픽 대기 화면을 구현하여 사용자 대기 경험을 크게 개선했습니다. 또한, 자동 저장 기능이 로그아웃/로그인 이후에도 무조건 입력값을 노출하던 구조에서 벗어나 '이어하기' 버튼을 클릭한 경우에만 데이터를 바인딩하도록 로직을 변경했습니다.
+	- [기능]:
+		1. **초기화 2중 컨펌 도입:** 헤더의 '초기화' 및 복원 배너의 '초기화'를 실행할 때 `window.confirm` 대화 상자를 띄워 사용자가 동의할 때만 로컬 저장소와 답변 상태가 리셋되도록 방어벽을 추가했습니다.
+		2. **비동기 추론 글라스모픽 로딩 화면 구현:** 2~6초의 백엔드 태스크 폴링 단계 동안 화면 전체를 덮는 `backdrop-blur-md bg-slate-900/60` 오버레이를 띄우고, 단계별 안내 문구(분석 데이터 변환 -> 예측 모델 추론 -> 가이드라인 생성)가 2초 간격으로 전환되며 아래 인디케이터가 차오르는 프리미엄 로딩 효과를 적용했습니다.
+		3. **자동 저장 복원 로직 분리:** 페이지 최초 로드 시 `localStorage`에 저장된 답변 데이터를 `answers` 상태에 바로 로딩하지 않고, 복원 배너의 '이어하기'를 명시적으로 클릭했을 때만 답변 및 현재 섹션 상태에 복원하도록 수정하여 의도하지 않은 값 선입력 현상을 해결했습니다.
+* **결과 확인:** `npm run build`를 통한 프론트엔드 정적 컴파일 성공 및 `uv run pytest app` 14개 테스트 전원 통과를 확인했습니다.
+* **참고:** 사용자 편의성 및 프론트엔드-백엔드 연동 상태의 UX 품질 최적화.
+
+## [2026-05-20 23:35 KST] - ✅ 전체 프로젝트 점검 및 결함 수정
+
+* **변경된 파일:** `app/utils/jwt/tokens.py`, `app/core/logger.py`, `app/apis/v1/auth_routers.py`, `Architecture_Diagram.md`, `SYSTEM_ARCHITECTURE.md`, `README.md`, `nginx/prod_http.conf`
+* **핵심 변경 사항:**
+	- [논리]: Antigravity IDE 재설치 후 과거 대화 이력 소멸로 인해 전체 코드베이스 재점검 수행. 7개 파일에서 결함 및 개선 사항 발견/수정.
+	- [버그 수정 — Critical]: `app/utils/jwt/tokens.py` — `RefreshToken.lifetime = timedelta(days=config.REFRESH_TOKEN_EXPIRE_MINUTES)` → `timedelta(minutes=...)` 로 수정. `REFRESH_TOKEN_EXPIRE_MINUTES` 값은 분 단위(14 * 24 * 60 = 20,160분)인데 `days=20160`으로 적용되어 리프레시 토큰 유효기간이 약 55년으로 설정되는 치명적 버그였음.
+	- [버그 수정]: `app/core/logger.py` — FastAPI 앱 로거의 기본 이름이 `"ai_worker"`로 설정되어 AI Worker 로그와 혼동 유발. `"fastapi_app"`으로 수정.
+	- [개선]: `app/apis/v1/auth_routers.py` — Naver OAuth 핸들러에서 매 요청마다 `import redis`, `redis.Redis()` 인스턴스를 신규 생성하는 방식을 모듈 레벨 싱글턴 `_get_redis()` 함수 패턴으로 교체. `secrets` import도 함수 내에서 모듈 레벨로 이동하여 표준 준수.
+	- [문서 수정]: `Architecture_Diagram.md` — mermaid 코드 블록 닫는 ` ``` ` 위치 오류 (파일 내부에 위치)로 인해 렌더링 불가 상태였음. 올바른 구조로 수정. 다이어그램 설명 레이블 정확도 향상.
+	- [문서 수정]: `SYSTEM_ARCHITECTURE.md` — CI/CD 섹션에서 "교차 컴파일 오버헤드 제거" 문구가 실제 전략(로컬 OS 무관, linux/amd64 단일 타겟 빌드)과 불일치. 정확한 설명으로 교체.
+	- [문서 수정]: `README.md` — "다중 아키텍처 지원" 문구를 "linux/amd64 단일 타겟 빌드" 실제 전략으로 수정.
+	- [문서 수정]: `nginx/prod_http.conf` — `server_name` 값이 한글 포함 "도메인 혹은 AWS_PUBLIC_IP" placeholder로 배포 스크립트의 `sed` 치환(`s/server_name .*/...`) 동작 시 공백 포함 문자열 처리 실패 가능성 있음. 단일 단어 `PLACEHOLDER`로 교체.
+* **결과 확인:** 코드 로직 점검 완료. `RefreshToken` 치명적 버그 수정으로 JWT 보안 정상화. 문서 정합성 확보.
+* **참고:** IDE 재설치 후 최초 전체 점검. 기존 `vibe_log.md` 내역 기반으로 현재 코드 상태와 교차 검증 수행.
+
+## [2026-05-21 01:34 KST] - (성공✅) UI/UX 개선: 엔트리 애니메이션, 로딩 루프, 스켈레톤 로딩 적용
+* **변경된 파일:** `src/app/components/OAuthCallbackPage.tsx`, `src/app/components/SurveyPage.tsx`, `src/app/components/DashboardPage.tsx`
+* **핵심 변경 사항:**
+	- [논리]: 사용자 경험(UX) 개선을 위해 화면 전환 및 대기 상태의 시각적 피드백을 강화. 인지적 마찰을 줄이고 자연스러운 진행감을 부여하는 설계 반영.
+	- [기능 - OAuthCallbackPage]: 로그인 인가 코드를 받고 즉시 이동하던 로직에 `isSuccess` 상태를 추가하여, 인증 성공 시 미세한 엔트리 애니메이션(Micro-animations, 체크마크 팝업) 표출 후 1초 지연 이동하도록 수정.
+	- [기능 - SurveyPage]: AI 분석 시 불필요한 예상 시간 안내 문구("분석은 대략 3~5초 정도 소요됩니다...")를 삭제. 또한 `inferenceStep` 타이머 연산을 `(prev + 1) % 3` 모듈러 연산으로 수정하여, 추론 시간이 6초 이상 장기화되어도 인디케이터가 `0 -> 1 -> 2 -> 0 -> 1 -> 2` 형태로 중단 없이 무한 루프 모션을 보여주도록 개선.
+	- [기능 - DashboardPage]: 진입 시 보여주는 로딩 UI를 기존 중앙 단일 스피너 형태에서, 대시보드 구조에 완벽히 들어맞는 프리미엄 스켈레톤 로딩(Skeleton Loading) UI(헤더, 요약 카드, 큰 평가 카드, 질환 카드 스켈레톤)로 전면 교체하여 UX 연속성 및 완성도 극대화.
+* **결과 확인:** 파일 수정 후 프론트엔드 코드 정합성 검토 완료.
+* **참고:** 사용자 UI/UX 미세 튜닝 요구사항 반영.

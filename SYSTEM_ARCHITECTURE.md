@@ -47,7 +47,7 @@
    - GitHub Actions 환경에서 `Ruff`를 통한 코드 린팅과 `Pytest`를 통한 단위 테스트가 자동 수행됩니다.
    - FastAPI 백엔드 및 인증 로직의 무결성을 철저히 검증한 후 다음 빌드 단계로 진행됩니다.
 2) **단일 아키텍처 빌드 (Single Architecture Build)**
-   - 로컬 개발 환경(x86_64)과 타겟 운영 서버(AWS EC2 x86_64) 간의 아키텍처 일치하므로 교차 컴파일 오버헤드가 제거됩니다.
-   - 배포 스크립트(`deployment.sh`) 내부에서 `Docker Buildx`를 사용하여 `--platform linux/amd64` 기반의 이미지를 안전하게 빌드하고 Docker Hub에 푸시합니다.
+   - 로컬 개발 환경(Windows/Mac)과 타겟 운영 서버(AWS EC2 x86_64 / linux/amd64)의 OS가 다를 수 있으므로, `Docker Buildx`를 사용하여 `--platform linux/amd64` 플래그로 타겟을 명시하여 빌드합니다.
+   - 이를 통해 로컬 호스트 OS에 무관하게 항상 EC2 호환 이미지를 생성하며, ARM 등 다른 아키텍처로의 교차 빌드는 수행하지 않습니다.
 3) **운영 서버 배포 (Deployment)**
    - 빌드된 최신 이미지를 AWS EC2 인스턴스에서 `docker compose` 명령어로 pull 받아, 무상태(Stateless) 기반의 무중단 아키텍처 형태로 컨테이너를 재실행합니다.

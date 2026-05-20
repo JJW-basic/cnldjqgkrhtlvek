@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router";
-import { ChevronLeft, ChevronRight, Check, Send, Zap, FlaskConical, Save, RotateCcw, Trophy, Target, Flame, Star, PartyPopper } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Send, Zap, FlaskConical, Save, RotateCcw, Trophy, Target, Flame, Star, PartyPopper, Loader2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { surveySections, SurveyQuestion, healthyMaleDummyData } from "./surveyData";
 import { apiFetch } from "../lib/apiClient";
@@ -20,19 +20,12 @@ const milestones = [
 export function SurveyPage() {
   const navigate = useNavigate();
 
-  // localStorage에서 복원
-  const [answers, setAnswers] = useState<Record<string, string>>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : {};
-    } catch { return {}; }
-  });
-  const [currentSection, setCurrentSection] = useState(() => {
-    try {
-      const saved = localStorage.getItem(SECTION_KEY);
-      return saved ? parseInt(saved, 10) : 0;
-    } catch { return 0; }
-  });
+  // 초기 상태는 빈 객체로 설정하여 페이지 진입 시 설문이 비어있도록 함
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [currentSection, setCurrentSection] = useState(0);
+  const [savedCount, setSavedCount] = useState(0);
+  const [inferenceStep, setInferenceStep] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
   const [fillingAnimation, setFillingAnimation] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -49,18 +42,32 @@ export function SurveyPage() {
     (q) => answers[q.variable] !== undefined && answers[q.variable] !== ""
   );
 
-  // 최초 마운트 시 복원 배너
+  // 최초 마운트 시 브라우저 로컬 저장소에 저장된 내역이 있는지 확인
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Object.keys(parsed).length > 0) {
+        const count = Object.keys(parsed).length;
+        if (count > 0) {
+          setSavedCount(count);
           setShowRestoreBanner(true);
         }
       }
     } catch { /* ignore */ }
   }, []);
+
+  // 비동기 추론 단계 텍스트 전환 타이머
+  useEffect(() => {
+    if (!submitting) {
+      setInferenceStep(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      setInferenceStep((prev) => (prev + 1) % 3);
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [submitting]);
 
   // Auto-save: answers 변경 시 localStorage에 저장
   useEffect(() => {
@@ -102,8 +109,6 @@ export function SurveyPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const [submitting, setSubmitting] = useState(false);
-
   // answers 파라미터를 받아 직접 제출 가능 (자동입력&분석 버튼에서 호출 시 state 비동기 문제 우회)
   const handleSubmit = async (overrideAnswers?: Record<string, string>) => {
     const submitData = overrideAnswers ?? answers;
@@ -134,7 +139,7 @@ export function SurveyPage() {
       sessionStorage.setItem("predictionResults", JSON.stringify(result));
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(SECTION_KEY);
-      navigate("/dashboard");
+      navigate("/dashboard", { state: { fromSurvey: true } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "오류가 발생했습니다.");
     } finally {
@@ -162,10 +167,32 @@ export function SurveyPage() {
     await handleSubmit(dummyAnswers);
   };
 
+  const handleRestore = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setAnswers(parsed);
+        toast.success("이전 설문 답변을 성공적으로 복원했습니다.");
+      }
+      const savedSec = localStorage.getItem(SECTION_KEY);
+      if (savedSec) {
+        setCurrentSection(parseInt(savedSec, 10));
+      }
+    } catch {
+      toast.error("저장된 설문을 복원하는 중 오류가 발생했습니다.");
+    }
+    setShowRestoreBanner(false);
+  };
+
   const handleClearSave = () => {
+    const confirmClear = window.confirm("작성 중인 설문 데이터가 영구 삭제됩니다. 계속하시겠습니까?");
+    if (!confirmClear) return;
+
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(SECTION_KEY);
     setAnswers({});
+    setSavedCount(0);
     setCurrentSection(0);
     setShowRestoreBanner(false);
     setLastSaved(null);
@@ -196,27 +223,27 @@ export function SurveyPage() {
     <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
       <Toaster position="top-center" richColors />
 
-      {/* 복원 배너 */}
-      {showRestoreBanner && answeredCount > 0 && (
-        <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-center justify-between gap-3">
+      {/* 복원 배너 - 저장된 문항이 있고 아직 현재 설문 작성(answeredCount)을 시작하지 않은 경우 노출 */}
+      {showRestoreBanner && savedCount > 0 && answeredCount === 0 && (
+        <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-center justify-between gap-3 animate-fade-in">
           <div className="flex items-center gap-2 min-w-0">
             <Save className="w-4 h-4 text-blue-600 shrink-0" />
             <p className="text-blue-800 text-sm truncate">
               <span style={{ fontWeight: 600 }}>저장된 설문</span>
-              <span className="hidden sm:inline"> — {answeredCount}개 문항 자동 저장됨</span>
-              <span className="sm:hidden"> ({answeredCount}문항)</span>
+              <span className="hidden sm:inline"> — {savedCount}개 문항 자동 저장됨</span>
+              <span className="sm:hidden"> ({savedCount}문항)</span>
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
             <button
-              onClick={handleDismissRestore}
-              className="px-3 py-1.5 rounded-lg text-xs border border-blue-300 bg-white text-blue-700 hover:bg-blue-100 transition-colors"
+              onClick={handleRestore}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
             >
               이어하기
             </button>
             <button
               onClick={handleClearSave}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors"
             >
               <RotateCcw className="w-3 h-3" /> 초기화
             </button>
@@ -446,9 +473,9 @@ export function SurveyPage() {
         {answeredCount > 0 && (
           <button
             onClick={handleClearSave}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-100"
+            className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-rose-600 hover:text-rose-700 bg-rose-50/50 hover:bg-rose-50 border border-rose-100 hover:border-rose-200 transition-all px-3 py-1.5 rounded-lg shadow-sm"
           >
-            <RotateCcw className="w-3 h-3" /> 초기화
+            <RotateCcw className="w-3.5 h-3.5" /> 초기화
           </button>
         )}
       </div>
@@ -481,23 +508,72 @@ export function SurveyPage() {
           </span>
         )}
 
-        {currentSection < surveySections.length - 1 ? (
-          <button
-            onClick={handleNext}
-            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm sm:text-base"
-          >
-            다음 <ChevronRight className="w-4 h-4" />
-          </button>
-        ) : (
-          <button
-            onClick={() => handleSubmit()}
-            disabled={progress < 100 || submitting}
-            className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 transition-all shadow-md text-sm sm:text-base"
-          >
-            <Send className="w-4 h-4" /> {submitting ? "분석 중..." : "분석 요청"}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* 모든 설문이 완료된 경우 어느 섹션에서든 분석 요청 활성화 */}
+          {progress === 100 && (
+            <button
+              onClick={() => handleSubmit()}
+              disabled={submitting}
+              className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-700 hover:to-cyan-700 transition-all shadow-md text-sm sm:text-base"
+            >
+              <Send className="w-4 h-4" /> {submitting ? "분석 중..." : "분석 요청"}
+            </button>
+          )}
+
+          {currentSection < surveySections.length - 1 ? (
+            <button
+              onClick={handleNext}
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm sm:text-base"
+            >
+              다음 <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : (
+            // 마지막 섹션에서 아직 미완료 상태일 때만 비활성화된 분석 요청 버튼 표시
+            progress < 100 && (
+              <button
+                onClick={() => handleSubmit()}
+                disabled={true}
+                className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white opacity-50 cursor-not-allowed transition-all shadow-md text-sm sm:text-base"
+              >
+                <Send className="w-4 h-4" /> 분석 요청
+              </button>
+            )
+          )}
+        </div>
       </div>
+
+      {/* AI 추론 중 글라스모픽 로딩 스크린 오버레이 */}
+      {submitting && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex flex-col items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100 flex flex-col items-center text-center space-y-6 animate-fade-in">
+            <div className="relative flex items-center justify-center w-20 h-20">
+              <div className="absolute inset-0 rounded-full bg-blue-100 animate-ping opacity-75" style={{ animationDuration: '2s' }} />
+              <div className="relative rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 p-5 shadow-lg">
+                <Loader2 className="w-10 h-10 text-white animate-spin" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-slate-900 font-bold" style={{ fontSize: "1.3rem" }}>AI 분석을 수행하고 있습니다</h3>
+              <p className="text-sm text-slate-500 min-h-[48px] px-2 transition-all duration-300">
+                {inferenceStep === 0 && "입력하신 건강 설문 데이터를 분석용 피처 데이터로 변환 중..."}
+                {inferenceStep === 1 && "만성질환 예측 AI 모델 추론 중 (고혈압, 당뇨병, 알레르기 비염, 이상지질혈증)..."}
+                {inferenceStep === 2 && "개인화된 생활습관 개선 가이드라인 및 위험 등급 생성 중..."}
+              </p>
+            </div>
+            {/* 진행 단계 인디케이터 */}
+            <div className="flex items-center gap-2 w-full max-w-[240px]">
+              {[0, 1, 2].map((step) => (
+                <div
+                  key={step}
+                  className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
+                    inferenceStep >= step ? "bg-blue-600" : "bg-slate-100"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -32,9 +32,10 @@ export function Layout() {
           </div>
           <nav className="hidden md:flex items-center gap-6">
             {[
-              { path: "/services", label: "서비스" },
+              { path: "/services", label: "메인페이지" },
               { path: "/survey", label: "설문" },
-              { path: "/dashboard", label: "대시보드" },
+              { path: "/ai-model", label: "AI 모델" },
+              { path: "/tech-stack", label: "기술 스택" },
             ].map((item) => (
               <button
                 key={item.path}
@@ -65,9 +66,10 @@ export function Layout() {
         {menuOpen && (
           <div className="md:hidden border-t border-slate-200 bg-white px-4 py-3 space-y-1">
             {[
-              { path: "/services", label: "서비스" },
+              { path: "/services", label: "메인페이지" },
               { path: "/survey", label: "설문" },
-              { path: "/dashboard", label: "대시보드" },
+              { path: "/ai-model", label: "AI 모델" },
+              { path: "/tech-stack", label: "기술 스택" },
             ].map((item) => (
               <button
                 key={item.path}
