@@ -906,3 +906,121 @@
   - [기능]: 해당 없음.
 * **결과 확인:** 사용자 질의에 대한 분석 답변 제공 완료.
 * **참고:** 없음
+
+## [2026-05-30 00:43 KST] - (성공✅) DEPLOYMENT_GUIDE.md 내 iptables 패키지 설치 단계를 보완
+* **변경된 파일:** `DEPLOYMENT_GUIDE.md`
+* **핵심 변경 사항:**
+	- [논리]: Ubuntu 22.04 LTS 등 기본 OS 환경에 `netfilter-persistent` 및 `iptables-persistent` 패키지가 미설치되어 있어 `sudo netfilter-persistent save` 실행 시 `command not found` 에러가 발생하는 현상 해결.
+	- [기능]: `DEPLOYMENT_GUIDE.md`의 OS iptables 방화벽 포트 개방 가이드라인에 해당 유틸리티 패키지들을 설치하는 단계(`sudo apt-get update && sudo apt-get install -y iptables-persistent netfilter-persistent`)를 추가.
+* **결과 확인:** 문서 수정이 완료되었으며, 사용자가 마주한 패키지 누락 에러에 대한 정확한 복구 명령어 가이드가 문서에 통합됨.
+
+## [2026-05-30 11:30 KST] - (성공✅) 향후 코드 개선을 위한 TODO_IMPROVEMENTS.md 백로그 파일 신설
+* **변경된 파일:** `TODO_IMPROVEMENTS.md`
+* **핵심 변경 사항:**
+	- [논리]: 유동 IP 및 DDNS 단독 활용 환경에서 발생 가능한 실시간 런타임 오류(OAuth 리다이렉트 미스매치, CSRF State 만료, Secure 쿠키 유실, CI/CD SSH Connection Timeout 등)를 근본적으로 우회하고 해결할 수 있는 리팩토링 설계 방향성을 백로그 형태로 보존하기 위함.
+	- [기능]: Nginx 수준의 IP 차단 및 도메인 강제 301 리다이렉트 설정 가이드, 네이버 Callback 대기 대응을 위한 Redis State TTL(30분) 연장 가이드, Let's Encrypt DNS-01 챌린지 및 GitHub Self-hosted Runner 전환 등 4가지 개선 로드맵과 5가지 리팩토링 체크리스트를 구조화하여 TODO_IMPROVEMENTS.md 파일에 수록 및 생성 완료.
+* **결과 확인:** 파일이 루트 디렉토리에 정상 작성되었으며 마크다운 링크 이동성 확보.
+
+## [2026-05-30 11:40 KST] - (성공✅) Duck DNS 고정 IP 환경 크론탭 필요 여부 가이드 제공
+* **변경된 파일:** 없음
+* **핵심 변경 사항:**
+	- [논리]: 사용자가 AWS 탄력적 IP(Elastic IP)를 할당하여 고정 IP(Static IP)를 확보한 상황에서, 유동 IP(Dynamic IP) 갱신용 크론탭(Crontab) 작업의 필요성을 질의함. 고정 IP 환경에서는 갱신이 불필요하므로 해당 과정을 생략해도 됨을 안내하고 기술적 근거와 검증 방법을 제공함.
+	- [기능]: 해당 없음.
+* **결과 확인:** 사용자 질의에 대한 상세 기술 분석 답변 완료.
+
+## [2026-05-30 23:15 KST] - (성공✅) 프론트엔드 빌드 및 배포 스크립트 메커니즘 가이드 제공
+* **변경된 파일:** 없음
+* **핵심 변경 사항:**
+	- [논리]: 사용자가 DEPLOYMENT_GUIDE.md 6단계(프론트엔드 프로덕션 빌드) 진행 전 점검 사항 및 자동 배포 스크립트의 `.prod.env` 반영 방식 메커니즘에 대해 문의함.
+	- [기능]: 1) 로컬 컴파일 성공 여부 점검, 2) 프론트엔드 환경 변수 영향 분석(API relative path 기본 동작 원리), 3) EC2 내 `~/project` 디렉터리 사전 생성 필요성, 4) OAuth Redirect URI 설정 확인 등 4대 사전 체크리스트와 빌드 타임 vs 런타임 변수 분리 주입 메커니즘 가이드를 제공함.
+* **결과 확인:** 사용자 질의에 대한 기술 검증 및 답변 완료.
+
+
+## [2026-05-31 01:30 KST] - (성공✅) Windows 환경에서의 자동 배포 스크립트 실행 오류 해결 (CRLF 캐리지 리턴 제거)
+* **변경된 파일:** `scripts/deployment.sh`
+* **핵심 변경 사항:**
+	- [논리]: Windows 환경에서 Git Bash를 통해 대화형 `read` 입력을 수행할 때, 입력 변수 끝에 캐리지 리턴 문자(`\r`)가 잔존하여 Docker registry 로그인 인증 시 `malformed HTTP Authorization header` 오류를 유발하거나 쉘에서 문자열 분할이 되지 않고 결합하는 오류가 발생했습니다.
+	- [기능]: `scripts/deployment.sh` 내부의 모든 사용자 입력 구문(`read -p`) 뒤에 `tr -d '\r'` 파이프를 적용하여 입력값의 캐리지 리턴 문자를 강제로 전처리(Sanitize) 하도록 수정했습니다.
+* **결과 확인:** 파일 수정이 완료되어 Windows PowerShell/Git Bash 등 다양한 환경에서 입력 오류 없이 동일하게 배포를 수행할 수 있게 보장했습니다.
+* **참고:** Windows 환경 Vibe Coding 중 발생하는 쉘 스크립트 TTY/라인 엔딩 호환성 문제 해결.
+
+## [2026-05-31 03:35 KST] - (성공✅) 자동 배포 스크립트 서비스 선택 메뉴 단일 선택(3옵션) 방식으로 개선
+* **변경된 파일:** `scripts/deployment.sh`
+* **핵심 변경 사항:**
+	- [논리]: 공백 구분 다중 입력 방식(예: `1 2`)이 따옴표 또는 인코딩 차이로 인해 쉘에서 오인식되거나 루프 처리 중 구문 오류가 발생하는 문제를 원천 차단하기 위해, 메뉴를 명시적인 단일 선택 방식으로 전환하였습니다.
+	- [기능]: 1번(fastapi 단독), 2번(ai_worker 단독), 3번(모두 배포)으로 선택지를 정립하고, `for` 루프 대신 단순 `case` 구문으로 처리하도록 변경하여 입력 방식 안정성을 높였습니다.
+* **결과 확인:** 코드 변경이 정상 완료되었으며, 1, 2, 3번 중 하나의 숫자만 기입하므로 불필요한 입력 혼선 및 공백 해석 문제를 방지합니다.
+* **참고:** Windows Git Bash 호환성 개선.
+
+## [2026-05-31 04:20 KST] - (성공✅) 자동 배포 스크립트에 '빌드 건너뛰기' 옵션(4번) 신설 및 패치
+* **변경된 파일:** `scripts/deployment.sh`
+* **핵심 변경 사항:**
+	- [논리]: 이미 도커 이미지가 빌드되어 업로드 완료된 상태에서 배포 설정 수정이나 전송 에러 복구 등을 위해 스크립트를 재실행할 때, 로컬에서 불필요하게 수 분 동안 재빌드 및 재푸시를 수행하는 낭비를 방지하고자 옵션을 신설했습니다.
+	- [기능]: 
+		1. 선택 메뉴에 `4) 빌드 건너뛰고 설정 복사 및 원격 배포만 진행 (이미 도커 이미지가 빌드/푸시된 경우)` 항목을 추가했습니다.
+		2. 4번 입력 시 로컬 도커 빌드/푸시 로직을 완전히 생략하고 원격지에 설정을 복사하며, 원격 EC2 상에서 업데이트된 설정(Nginx 등)을 즉시 적용할 수 있도록 `fastapi`, `ai-worker`, `nginx` 세 가지 서비스를 모두 갱신(Recreate)하도록 처리했습니다.
+		3. 빌드를 생략할 경우 불필요한 빌드 성공 축하 메시지(`모든 선택된 이미지 빌드 & 푸시 완료! 🎉`) 출력을 방지하는 분기문을 추가했습니다.
+* **결과 확인:** 코드 패치가 정상 완료되었으며, 4번 선택 시 로컬 컴파일 지연 없이 약 10초 내로 복사 및 원격 재기동이 수행됩니다.
+* **참고:** 스크립트 재시행 및 인프라 복구 편의성 극대화.
+
+## [2026-05-31 04:54 KST] - (성공✅) 운영 Nginx 설정 파일 도메인 명세 반영 및 로컬 선대비 작업 완료
+* **변경된 파일:** `nginx/prod_http.conf`, `nginx/prod_https.conf`
+* **핵심 변경 사항:**
+	- [논리]: Windows 환경에서 `sed -i` 등 유닉스 계열 파일 치환 도구 사용 시 발생하는 호환성 문제와 스크립트 에러를 미연에 방지하기 위해, 환경변수(`.prod.env`)에 명시된 운영 도메인(`chronicconditioncheck.duckdns.org`) 정보를 로컬 설정 파일에 직접 주입하였습니다.
+	- [기능]:
+		1. `nginx/prod_http.conf` 파일의 `server_name` 지시어에 IP 플레이스홀더를 도메인 주소로 교체하였습니다.
+		2. `nginx/prod_https.conf` 파일의 `server_name` 및 Let's Encrypt 인증서 경로(`ssl_certificate`, `ssl_certificate_key`)의 `도메인` 플레이스홀더를 실제 도메인 주소로 전역 치환 완료하였습니다.
+* **결과 확인:** 두 파일 모두 도메인 치환이 정상 완료되었으며, 이로 인해 Windows 터미널에서 로컬 치환 작업을 생략하고 복사(scp) 및 원격 배포 명령어만으로 SSL 설정을 수행할 수 있도록 간소화되었습니다.
+* **참고:** Windows 배포 시행착오 예방 조치.
+
+## [2026-05-31 10:45 KST] - (성공✅) 배포 파이프라인(GitHub & Docker Hub) 분석 및 유지보수 가이드 제공
+* **변경된 파일:** 없음
+* **핵심 변경 사항:**
+	- [논리]: 사용자가 GitHub 및 Docker Hub를 통한 배포/유지보수 흐름과 기존 설계 정합성에 대해 질의함. 현재 CI(GitHub Actions)와 배포 스크립트(Docker Hub & SCP)의 작동 원리를 확인하고, 코드 업데이트가 서버에 배포되는 전체 라이프사이클을 안내함.
+	- [기능]: 해당 없음.
+* **결과 확인:** 사용자 질의에 대한 상세 배포 파이프라인 분석 답변 제공 완료.
+* **참고:** 없음
+
+## [2026-05-31 12:00 KST] - (성공✅) TODO_IMPROVEMENTS.md 내 모든 개선 백로그 반영 및 패치 완료
+* **변경된 파일:** `nginx/prod_https.conf`, `app/apis/v1/auth_routers.py`, `app/tests/test_cors.py` (신규), `docker-compose.prod.yml`, `scripts/certbot.sh`, `scripts/deployment.sh`, `envs/example.prod.env`, `.github/workflows/deploy.yml` (신규), `DEPLOYMENT_GUIDE.md`
+* **핵심 변경 사항:**
+	- [논리]: 1) IP 직접 접속을 감지하여 도메인(HTTPS)으로 리다이렉트하는 Nginx 가드를 구축하고, 2) DNS 전파 대기 시간 마진 확보를 위해 Naver OAuth Redis state TTL을 30분으로 연장했습니다. 3) Certbot SSL 인증서 발급 방식을 포트 80 의존성이 없는 DNS-01(Duck DNS API)로 전환하고, 4) EC2 호스트 경로 의존 및 SSH timeout 문제를 극복하기 위해 GitHub Actions Self-hosted Runner용 CD 자동화 파이프라인을 구축했습니다.
+	- [기능]:
+		- `prod_https.conf`: IP를 감지하는 정규식 체크 및 301 리다이렉트 규칙 추가.
+		- `auth_routers.py`: `setex` TTL을 300초에서 1800초로 상향 조정.
+		- `test_cors.py`: `ALLOWED_ORIGINS` 타입, trailing slash 유무, 도메인 정합성을 테스트하는 자동화 테스트 코드 신설.
+		- `docker-compose.prod.yml` & `certbot.sh`: `certbot-dns-duckdns` 플러그인을 온더플라이로 설치해 Duck DNS TXT 레코드를 활용하는 DNS-01 챌린지 갱신 프로세스 도입.
+		- `deployment.sh`: 쉘 스크립트 도메인 치환을 server_name prefix가 아닌 특정 도메인 문자열 전역 치환으로 수정하여 정합성 보장.
+		- `deploy.yml`: 메인 브랜치 푸시 시 프론트엔드/백엔드 빌드 및 Docker Hub 업로드를 처리하고, EC2 내 셀프 호스티드 러너가 풀 방식으로 컨테이너 배포를 처리하는 CD 파일 신설.
+		- `DEPLOYMENT_GUIDE.md`: EC2 백그라운드 서비스로서의 러너 등록 단계 및 필요 Secrets 명세 추가.
+* **결과 확인:** `uv run pytest app` 실행 결과 신설된 CORS 테스트를 포함해 총 16개 테스트 케이스가 성공적으로 통과함 (100% Pass).
+
+## [2026-05-31 12:40 KST] - ✅ 코드 점검 완료 및 버그 수정 (배포 전 검증)
+
+* **변경된 파일:** `scripts/certbot.sh`, `scripts/deployment.sh`, `.github/workflows/deploy.yml`, `DEPLOYMENT_GUIDE.md`, `TODO_IMPROVEMENTS.md`
+* **핵심 변경 사항:**
+	- [논리]: 이전 세션에서 자동 적용된 코드 변경분을 전수 점검하여 발견된 3가지 결함 수정.
+	- [기능]:
+		- `certbot.sh` **heredoc 변수 확장 버그 수정**: `<< 'EOF'` (단일 따옴표) → `<< EOF` (따옴표 없음)으로 변경. 기존에는 SSH heredoc 내 `${DUCKDNS_TOKEN}` 등의 변수가 리터럴 문자열로 전달되어 `duckdns.ini`에 토큰 값 대신 변수명이 기록되는 치명적 버그가 있었음.
+		- `certbot.sh` / `deployment.sh` **sed 로컬 파일 영구 변형 버그 수정**: nginx conf 파일을 `sed`로 치환 전 `.bak`으로 백업하고 SCP 전송 후 `mv`로 복원하도록 변경. 반복 실행 시 기준 도메인(`chronicconditioncheck.duckdns.org`)이 소실되던 문제 해결.
+		- `deploy.yml` **`.env` 파일 누락 배포 실패 수정**: `sed -i` 방식으로 존재하지 않는 `.env` 파일을 수정하려 했던 로직을 제거하고, `PROD_ENV_FILE` GitHub Secret으로부터 `.env`를 직접 생성하는 방식으로 교체. 배포 후 Nginx DNS 캐시 갱신을 위한 `docker compose restart nginx` 스텝 추가.
+		- `DEPLOYMENT_GUIDE.md` **GitHub Secrets 목록 보완**: `PROD_ENV_FILE` 항목 및 등록 방법 설명 추가.
+		- `TODO_IMPROVEMENTS.md` **백로그 문서 재정비**: 완료된 항목에 ✅ 표시 및 반영 내용 상세 기록, 배포 대기 항목에 ⏳ 표시, 미시작 항목에 🔲 표시. 범례(Legend) 추가.
+* **결과 확인:** 코드 정적 분석 완료, 로직 결함 3건 수정. 실 배포 적용 전 상태.
+* **참고:** 코드 결함 수정 완료 후 배포 가능 상태 확인됨. 배포 방법은 아래 "배포 전 체크리스트" 참조.
+
+## [2026-05-31 13:50 KST] - (성공✅) 수동 배포 및 서비스 업데이트 완료 (Nginx IP 차단, Naver TTL 연장, DNS-01 SSL 적용)
+* **변경된 파일:** `envs/.prod.env`
+* **핵심 변경 사항:**
+	- [논리]: 로컬에 반영된 Nginx IP 직접 접속 제한, 네이버 OAuth CSRF Redis state TTL 연장, 그리고 Let's Encrypt DNS-01 챌린지 기반 SSL 인증서 자동 갱신 프로세스를 원격 서버에 업데이트하기 위한 배포 작업을 실행함.
+	- [기능]: 
+		1. `envs/.prod.env` 파일에 `DUCKDNS_TOKEN` 추가 적용.
+		2. 로컬에서 최신 FastAPI 도커 이미지를 빌드하여 Docker Hub (`tjdwkdgksmsroqkfwk/ai-health:app-v1.0.0`)에 푸시 완료.
+		3. EC2 서버에 `.env`, `docker-compose.yml`, `nginx/default.conf` 최신 설정 파일을 업로드(SCP)하고 배포 서비스를 갱신 및 재기동함.
+		4. DNS-01 챌린지용 `duckdns.ini` 환경 설정을 `certbot-conf` 볼륨 내에 주입하고, `certbot` 서비스를 기동하여 SSL 인증서 갱신 감지(Loop) 프로세스를 안전하게 시작함.
+* **결과 확인:**
+	- `http://13.125.111.87` (HTTP IP) 및 `https://13.125.111.87` (HTTPS IP)로 접속 시 `https://chronicconditioncheck.duckdns.org/`로 301 리다이렉트가 정상 동작함을 확인.
+	- `https://chronicconditioncheck.duckdns.org/api/openapi.json` 경로가 정상적으로 HTTP 200 OK를 반환하고, FastAPI 서버가 에러 없이 기동됨을 로그로 검증함.
+	- `certbot` 컨테이너 로그에서 `Certificate not yet due for renewal` 및 2026-08-28 만료 체크 메시지를 확인하여 DNS-01 챌린지 갱신 루프가 오류 없이 기동 중임을 검증함.
+
+

@@ -66,11 +66,11 @@ services:
     depends_on:
       - fastapi
 
-  # 5. certbot: SSL 인증서 자동 갱신 (48h 주기)
+  # 5. certbot: SSL 인증서 자동 갱신 (48h 주기, DNS-01 챌린지 방식)
   certbot:
     image: certbot/certbot
     container_name: auto-certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 48h & wait $${!}; done;'"
+    entrypoint: "/bin/sh -c 'pip install certbot-dns-duckdns && trap exit TERM; while :; do certbot renew --authenticator dns-duckdns --dns-duckdns-credentials /etc/letsencrypt/duckdns.ini --dns-duckdns-propagation-seconds 60; sleep 48h & wait $${!}; done;'"
     volumes:
       - certbot-conf:/etc/letsencrypt
       - certbot-www:/var/www/certbot

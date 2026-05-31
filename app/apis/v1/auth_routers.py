@@ -159,7 +159,7 @@ async def naver_login() -> RedirectResponse:
     if not config.NAVER_CLIENT_ID:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="네이버 OAuth가 설정되지 않았습니다.")
     state = secrets.token_urlsafe(16)
-    _get_redis().setex(f"oauth:naver:state:{state}", 300, "1")  # TTL 5분
+    _get_redis().setex(f"oauth:naver:state:{state}", 1800, "1")  # TTL 30분
     url = (
         "https://nid.naver.com/oauth2.0/authorize"
         f"?client_id={config.NAVER_CLIENT_ID}"

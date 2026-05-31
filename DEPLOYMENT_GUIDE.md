@@ -246,6 +246,11 @@ docker --version && docker compose version
 > 반드시 아래 명령어로 OS 방화벽도 함께 개방해야 합니다.
 
 ```bash
+# iptables 규칙 저장을 위한 패키지 설치 (설치 중 팝업 발생 시 Yes/예 선택)
+sudo apt-get update
+sudo apt-get install -y iptables-persistent netfilter-persistent
+
+# 포트 개방 및 저장
 sudo iptables -I INPUT -p tcp -m tcp --dport 80 -j ACCEPT
 sudo iptables -I INPUT -p tcp -m tcp --dport 443 -j ACCEPT
 sudo netfilter-persistent save
@@ -354,7 +359,59 @@ curl -o /dev/null -w "%{http_code}" https://your-name.duckdns.org/api/openapi.js
 curl -o /dev/null -w "%{http_code}" -L https://your-name.duckdns.org/api/v1/auth/kakao/login
 ```
 
+### 10. GitHub Actions Self-hosted Runner 설정
+
+자동화 배포(CD)를 위해 AWS EC2 서버 내에 GitHub Actions 러너를 에이전트로 등록해야 합니다.
+
+#### 1) GitHub 저장소 설정
+1. GitHub 저장소 페이지 이동 → **Settings** → **Actions** → **Runners**
+2. **New self-hosted runner** 클릭
+3. **Runner image**: `Linux` / **Architecture**: `x64` 선택
+
+#### 2) EC2 서버에서 러너 다운로드 및 구성
+EC2 인스턴스에 SSH 접속 후 아래 명령어를 순차적으로 실행합니다:
+
+```bash
+# 1. 러너 디렉터리 생성 및 이동
+mkdir -p ~/actions-runner && cd ~/actions-runner
+
+# 2. 러너 패키지 다운로드 (GitHub 페이지에 안내된 버전을 다운로드하세요)
+curl -o actions-runner-linux-x64-2.316.1.tar.gz -L https://github.com/actions/runner/releases/download/v2.316.1/actions-runner-linux-x64-2.316.1.tar.gz
+
+# 3. 압축 해제
+tar xzf actions-runner-linux-x64-2.316.1.tar.gz
+
+# 4. 러너 구성 등록 (GitHub 페이지에 발급된 토큰 명령어를 복사하여 실행)
+./config.sh --url https://github.com/YOUR_GITHUB_ID/YOUR_REPO_NAME --token YOUR_TOKEN_HERE
+# * 질문 프롬프트 입력 시 엔터(기본값)를 입력하되, Tag 설정 시 'self-hosted' 태그가 포함되어야 합니다.
+```
+
+#### 3) 백그라운드 서비스 등록 및 실행
+러너를 상시 구동하고 서버 재시작 시 자동 실행되도록 systemd 서비스로 등록합니다:
+
+```bash
+# 서비스 설치 (root 권한 필요)
+sudo ./svc.sh install
+
+# 서비스 시작
+sudo ./svc.sh start
+
+# 서비스 상태 확인
+sudo ./svc.sh status
+```
+
+#### 4) GitHub Secrets 설정
+GitHub 저장소 → **Settings** → **Secrets and variables** → **Actions** → **New repository secret** 버튼을 눌러 다음 보안 변수들을 등록합니다:
+
+* `DOCKER_USERNAME`: Docker Hub 유저네임
+* `DOCKER_PASSWORD`: Docker Hub 비밀번호 또는 Personal Access Token (PAT)
+* `DOCKER_REPOSITORY`: Docker Hub 이미지 업로드용 레포지토리 이름 (예: `ai-health`)
+* `PROD_ENV_FILE`: `envs/.prod.env` 파일의 **전체 내용**을 붙여넣기
+
+  > **`PROD_ENV_FILE` 등록 방법**: 로컬에서 `envs/.prod.env` 파일을 열고, 실제 운영 값이 채워진 내용 전체를 복사한 뒤 Secret 값으로 붙여넣기하세요. 이 Secret이 배포 시 EC2의 `~/project/.env` 파일로 자동 주입됩니다.
+
 ---
+
 
 ## AWS 배포 가이드라인 (레거시 참고용)
 
