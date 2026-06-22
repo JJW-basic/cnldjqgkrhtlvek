@@ -1107,3 +1107,11 @@
 	- [기능]: `DashboardPage.tsx`에서 '건강 개선 가이드라인' 카드(div) 영역을 삭제하고, lucide-react에서 해당 영역에만 단독 사용되고 있었던 `FileText` 아이콘 임포트를 제거함.
 * **결과 확인:** 로컬에서 `npm run build`를 수행하여 TypeScript 컴파일 에러 및 빌드 오류 없이 프론트엔드 정적 파일이 성공적으로 빌드됨을 검증함.
 * **참고:** 사용자의 대시보드 UI 정리 요청에 따라 조치함.
+
+## [2026-06-22 22:34 KST] - (성공✅) Windows 전용 rollup 의존성 제거 및 package-lock.json 갱신
+* **변경된 파일:** `package.json`, `package-lock.json`
+* **핵심 변경 사항:**
+	- [논리]: 로컬 빌드 중 rollup native module 누락 오류 우회를 위해 설치했던 `@rollup/rollup-win32-x64-msvc`가 `package.json`의 `dependencies`에 추가되어, 리눅스 기반 CI 환경(GitHub Actions)에서 `npm install` 실행 시 `EBADPLATFORM` 플랫폼 호환성 에러로 빌드가 실패하던 현상을 해결함.
+	- [기능]: `package.json`에서 `@rollup/rollup-win32-x64-msvc` 의존성을 제거하고 `npm install`을 다시 수행하여 `package-lock.json`을 업데이트함.
+* **결과 확인:** 로컬에서 `npm run build`가 정상 완료되고, 플랫폼 종속적인 required 의존성이 제거되었으므로 CI 환경의 `EBADPLATFORM` 에러가 해결됨을 검증함.
+* **참고:** npm cli의 optionalDependencies 관련 버그 우회 조치.
