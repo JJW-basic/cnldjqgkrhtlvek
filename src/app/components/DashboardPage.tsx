@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router";
 import {
   AlertTriangle, CheckCircle, Activity, Heart, TrendingUp, Wind,
-  Shield, Stethoscope, Info, ArrowLeft, FileText,
+  Shield, Stethoscope, Info, ArrowLeft,
 } from "lucide-react";
 
 interface Predictions {
@@ -421,20 +421,6 @@ export function DashboardPage() {
                 </div>
               );
             })}
-          </div>
-        </div>
-
-        {/* 건강 개선 가이드라인 (placeholder) */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-1">
-            <FileText className="h-5 w-5 text-green-600" />
-            <h2 className="text-slate-900" style={{ fontSize: "1.1rem", fontWeight: 600 }}>건강 개선 가이드라인</h2>
-          </div>
-          <p className="text-sm text-slate-500 mb-4">openAPI 기반 맞춤형 건강 개선 정보</p>
-          <div className="text-center py-8">
-            <CheckCircle className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500 mb-1">건강 개선 가이드라인 정보가 아직 제공되지 않았습니다.</p>
-            <p className="text-sm text-slate-400">서버에서 openAPI 데이터를 수신하면 이 영역에 표시됩니다.</p>
           </div>
         </div>
 
