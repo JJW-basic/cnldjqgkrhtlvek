@@ -14,13 +14,9 @@ def test_kakao_login_redirect():
 
 @patch("redis.Redis")
 def test_naver_login_redirect(mock_redis):
-    # Mock the Redis instance so it doesn't try to connect
-    mock_redis_instance = mock_redis.return_value
-    mock_redis_instance.setex.return_value = True
-
     response = client.get("/api/v1/auth/naver/login", follow_redirects=False)
-    assert response.status_code in [302, 307]
-    assert "https://nid.naver.com/oauth2.0/authorize" in response.headers["location"]
+    assert response.status_code == 403
+    assert "Naver API 검수 요청" in response.json()["detail"]
 
 def test_logout():
     response = client.post("/api/v1/auth/logout")

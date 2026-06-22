@@ -12,7 +12,13 @@ export function LoginPage() {
   };
 
   const handleNaverLogin = () => {
-    window.location.href = `${API_BASE}/api/v1/auth/naver/login`;
+    alert(
+      "Naver API 검수 요청은 추후에 진행할 예정이며, 카카오 API 인증만 가능합니다.\n\n" +
+      "카카오 API 인증 시 추가 정보 수집은 없으며, 인증 받지 않은 카카오 계정도 로그인이 가능합니다.\n\n" +
+      "테스용 카카오 임시 계정\n" +
+      " ID: test@yzcalo.com\n" +
+      " PW: xptmxmdyd1!"
+    );
   };
 
   return (
@@ -35,7 +41,7 @@ export function LoginPage() {
               className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
               style={{ backgroundColor: "#FEE500", color: "#191919", fontWeight: 600 }}
             >
-              <svg width="20" height="20" viewBox="0 0 20 20"><path d="M10 2C5.03 2 1 5.13 1 8.97c0 2.48 1.65 4.66 4.13 5.88-.18.64-.65 2.33-.74 2.69-.12.45.16.44.34.32.14-.1 2.19-1.49 3.08-2.1.38.05.78.08 1.19.08 4.97 0 9-3.13 9-6.97S14.97 2 10 2z" fill="#191919"/></svg>
+              <svg width="20" height="20" viewBox="0 0 20 20"><path d="M10 2C5.03 2 1 5.13 1 8.97c0 2.48 1.65 4.66 4.13 5.88-.18.64-.65 2.33-.74 2.69-.12.45.16.44.34.32.14-.1 2.19-1.49 3.08-2.1.38.05.78.08 1.19.08 4.97 0 9-3.13 9-6.97S14.97 2 10 2z" fill="#191919" /></svg>
               카카오 로그인
             </button>
             <button
@@ -43,7 +49,7 @@ export function LoginPage() {
               className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
               style={{ backgroundColor: "#03C75A", color: "#fff", fontWeight: 600 }}
             >
-              <svg width="20" height="20" viewBox="0 0 20 20"><path d="M13.5 10.5L6.2 2H2v16h4.5V9.5L13.8 18H18V2h-4.5v8.5z" fill="#fff"/></svg>
+              <svg width="20" height="20" viewBox="0 0 20 20"><path d="M13.5 10.5L6.2 2H2v16h4.5V9.5L13.8 18H18V2h-4.5v8.5z" fill="#fff" /></svg>
               네이버 로그인
             </button>
           </div>

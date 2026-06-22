@@ -1023,4 +1023,24 @@
 	- `https://chronicconditioncheck.duckdns.org/api/openapi.json` 경로가 정상적으로 HTTP 200 OK를 반환하고, FastAPI 서버가 에러 없이 기동됨을 로그로 검증함.
 	- `certbot` 컨테이너 로그에서 `Certificate not yet due for renewal` 및 2026-08-28 만료 체크 메시지를 확인하여 DNS-01 챌린지 갱신 루프가 오류 없이 기동 중임을 검증함.
 
+## [2026-06-22 11:40 KST] - (성공✅) 네이버 로그인 임시 차단 및 안내 모달 적용, 관련 백엔드 API/테스트 차단 처리
+* **변경된 파일:** `src/app/components/LoginPage.tsx`, `app/apis/v1/auth_routers.py`, `app/tests/test_auth.py`
+* **핵심 변경 사항:**
+	- [논리]: Naver API 검수 완료 전 임시 조치로 일반 사용자의 네이버 로그인을 제한하고 카카오 로그인을 유도하도록 수정하여 사용자 오접속 및 에러 노출 방지.
+	- [기능]:
+		- **프론트엔드 (`LoginPage.tsx`)**: 네이버 로그인 버튼 클릭 시 OAuth 리다이렉션을 차단하고 안내 모달을 노출. 모달 내에 Naver API 임시 제한 사유(추후 검수 예정), 카카오 API 사용 권장, 카카오 API 인증 시 추가 정보 수집 없음 및 미인증 계정 로그인 가능 정보를 고지하고, 즉시 카카오 로그인으로 이어갈 수 있는 CTA 버튼 제공.
+		- **백엔드 (`auth_routers.py`)**: `/naver/login` 및 `/naver/callback` API 접근 시 즉시 `HTTP 403 Forbidden` 에러를 상세 안내 문구와 함께 반환하도록 차단 설정.
+		- **테스트 (`test_auth.py`)**: 변경된 백엔드 차단 정책에 맞춰 `test_naver_login_redirect` 테스트가 HTTP 403과 에러 메시지를 검사하도록 갱신.
+* **결과 확인:** 로컬 pytest 실행 결과 CORS 및 신규 차단 테스트 포함 16개 테스트 케이스 전체가 100% 통과(Pass)함.
+
+## [2026-06-22 13:50 KST] - (성공✅) 네이버 로그인 경고 안내 방식을 UI 모달에서 네이티브 JS alert()으로 변경
+* **변경된 파일:** `src/app/components/LoginPage.tsx`
+* **핵심 변경 사항:**
+	- [논리]: 이전 적용된 복잡한 모달 UI를 걷어내고, 사용자가 인지 후 바로 기존 로그인 시도 상태로 원활하게 회귀할 수 있도록 브라우저 네이티브 `alert()` 창 호출 방식으로 전환.
+	- [기능]:
+		- **프론트엔드 (`LoginPage.tsx`)**: 기존 모달 관련 `useState` 상태값 및 마크다운 UI 코드를 전면 삭제. 네이버 로그인 클릭 시 네이티브 `alert()` 메시지 창을 띄워 Naver API 검수 임시 제한, 카카오 API 권장, 카카오 API 인증 시 개인정보 미수집 및 미인증 계정 로그인 가능 정책을 전달함. 사용자가 얼럿 확인 버튼을 누르면 즉시 로그인 활성 상태로 돌아오도록 단순화.
+* **결과 확인:** 수정 후 backend unit tests (pytest 16개 케이스) 전체가 정상 통과(Pass)함을 재검증함.
+
+
+
 

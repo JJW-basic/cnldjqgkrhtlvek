@@ -156,18 +156,10 @@ async def kakao_callback(
 # ── 네이버 로그인 시작 ──────────────────────────────────────────────────────────
 @auth_router.get("/naver/login", status_code=status.HTTP_302_FOUND)
 async def naver_login() -> RedirectResponse:
-    if not config.NAVER_CLIENT_ID:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="네이버 OAuth가 설정되지 않았습니다.")
-    state = secrets.token_urlsafe(16)
-    _get_redis().setex(f"oauth:naver:state:{state}", 1800, "1")  # TTL 30분
-    url = (
-        "https://nid.naver.com/oauth2.0/authorize"
-        f"?client_id={config.NAVER_CLIENT_ID}"
-        f"&redirect_uri={config.NAVER_REDIRECT_URI}"
-        "&response_type=code"
-        f"&state={state}"
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Naver API 검수 요청은 추후에 진행할 예정이며, 카카오 API 인증만 가능합니다. 카카오 로그인 시 추가 정보 수집은 없으며, 인증 받지 않은 카카오 계정도 로그인할 수 있습니다."
     )
-    return RedirectResponse(url=url)
 
 
 # ── 네이버 콜백 ────────────────────────────────────────────────────────────────
@@ -177,6 +169,10 @@ async def naver_callback(
     state: str,
     jwt_service: Annotated[JwtService, Depends(JwtService)],
 ) -> Response:
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Naver API 검수 요청은 추후에 진행할 예정이며, 카카오 API 인증만 가능합니다. 카카오 로그인 시 추가 정보 수집은 없으며, 인증 받지 않은 카카오 계정도 로그인할 수 있습니다."
+    )
     # 0) Redis state 검증 (CSRF 방어)
     state_key = f"oauth:naver:state:{state}"
     if not _get_redis().getdel(state_key):
