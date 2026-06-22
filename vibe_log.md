@@ -1074,6 +1074,15 @@
 		- **`deploy.yml`**: 의존성 설치 과정에서 `rm -f package-lock.json` 코드를 재주입하여 리눅스 환경에 맞는 패키지 목록을 동적으로 처음부터 해결하도록 조치.
 * **결과 확인:** 설정 파일 수정 완료. 사용자가 최종 push하여 배포 결과를 점검할 예정.
 
+## [2026-06-22 17:51 KST] - (성공✅) Tailwind v4 Rust 컴파일러와 Node.js 호환성 오류 해결을 위해 Node.js 20으로 업그레이드
+* **변경된 파일:** `.github/workflows/deploy.yml`
+* **핵심 변경 사항:**
+	- [논리]: 최신 기술 스택(Vite 6, Tailwind CSS v4) 및 그 종속 모듈인 Rust 컴파일러 바이너리(@tailwindcss/oxide)가 구버전 Node.js 18 런타임 하에서 로드 오류(Cannot find native binding)를 내는 것을 해결하기 위해 Node.js 엔진 버전을 20으로 업그레이드.
+	- [기능]:
+		- **`deploy.yml`**: `build-frontend` 작업의 Node.js 설정(`node-version`)을 `18`에서 `20`으로 변경.
+* **결과 확인:** 설정 파일 수정 완료. 사용자가 수정본을 push하여 빌드 결과가 성공하는지 점검할 예정.
+
+
 
 
 
