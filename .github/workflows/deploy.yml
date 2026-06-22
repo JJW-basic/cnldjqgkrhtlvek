@@ -112,7 +112,9 @@ jobs:
           # GitHub Secret 'PROD_ENV_FILE'에 envs/.prod.env 내용 전체를 등록해 두면
           # 배포 시 EC2 호스트에 .env 파일로 직접 주입됩니다.
           # ⚠️ GitHub Settings → Secrets → PROD_ENV_FILE 에 실제 .env 내용을 붙여넣기 하세요.
-          echo "${{ secrets.PROD_ENV_FILE }}" > ~/project/.env
+          cat << 'EOF' > ~/project/.env
+          ${{ secrets.PROD_ENV_FILE }}
+          EOF
 
       - name: Deploy Containers
         run: |

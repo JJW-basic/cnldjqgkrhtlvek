@@ -1090,3 +1090,12 @@
 
 
 
+
+## [2026-06-22 18:12 KST] - ✅ deploy.yml bash 구문 오류 수정
+
+* **변경된 파일:** `.github/workflows/deploy.yml`
+* **핵심 변경 사항:**
+	- [논리]: GitHub Secrets 변수(`PROD_ENV_FILE`) 주입 시 `echo "${{ secrets.PROD_ENV_FILE }}" > ...` 방식을 사용할 경우, Secret 내용에 특수 문자가 포함되면 bash 구문 오류가 발생할 수 있음 (`syntax error near unexpected token`). 이를 방지하기 위해 `cat << 'EOF'` 형식의 Quoted Heredoc을 사용하여 bash 파싱을 우회하고 Secret 값을 있는 그대로 파일로 작성하도록 구조 수정.
+	- [기능]: `deploy.yml`의 `Write production .env file` 스텝 명령어를 Quoted Heredoc 방식으로 교체
+* **결과 확인:** 안전한 파일 작성 방식으로 변경 완료. 재배포 시 오류 해결 기대됨.
+* **참고:** 
