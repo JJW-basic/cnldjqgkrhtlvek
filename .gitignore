@@ -12,3 +12,4 @@ wheels/
 .coverage
 *.coverage
 .coverage.*
+node_modules/

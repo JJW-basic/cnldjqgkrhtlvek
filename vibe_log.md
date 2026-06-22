@@ -1049,6 +1049,16 @@
 		- **CI/CD (`deploy.yml`)**: `build-frontend` 작업의 의존성 설치 스텝에서 `npm ci`를 수행하기 전, 기존 `package-lock.json`을 삭제(`rm -f`)하고 `npm install`을 실행하도록 변경하여 리눅스 환경에 최적화된 패키지 트리와 플랫폼 바이너리를 실시간 빌드 시점에 동적으로 구성하도록 수정.
 * **결과 확인:** 파일 수정 완료. 사용자가 로컬에서 직접 Git Push를 실행하여 빌드 및 배포 동작을 최종 확인할 예정.
 
+## [2026-06-22 17:40 KST] - (성공✅) node_modules Git 추적 제외 및 .gitignore 추가, CI 빌드 안정화 원복
+* **변경된 파일:** `.gitignore`, `.github/workflows/deploy.yml`
+* **핵심 변경 사항:**
+	- [논리]: Git 저장소에 Windows용 node_modules 폴더가 실수로 커밋되어 올라가 있어, 리눅스 빌드 가상머신에서 패키지를 새로 설치하지 않고 기존 Windows 바이너리를 그대로 참조하여 네이티브 바이너리 바인딩 오류가 반복 발생했음. node_modules를 Git 추적에서 해제하고 `.gitignore`에 등록하여 근본 문제 해결.
+	- [기능]:
+		- **`.gitignore`**: `node_modules/` 폴더를 차단하도록 설정 추가.
+		- **`deploy.yml`**: 의존성 설치 방식을 다시 안정적이고 빠른 `npm ci` 표준 구문으로 원복.
+* **결과 확인:** 설정 파일 수정 완료. 사용자가 로컬 터미널에서 `git rm -r --cached node_modules` 실행 후 커밋/푸시하여 검증 예정.
+
+
 
 
 
