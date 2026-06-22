@@ -14,7 +14,6 @@ export function LoginPage() {
   const handleNaverLogin = () => {
     alert(
       "Naver API 검수 요청은 추후에 진행할 예정이며, 카카오 API 인증만 가능합니다.\n\n" +
-      "카카오 API 인증 시 추가 정보 수집은 없으며, 인증 받지 않은 카카오 계정도 로그인이 가능합니다.\n\n" +
       "테스용 카카오 임시 계정\n" +
       " ID: test@yzcalo.com\n" +
       " PW: xptmxmdyd1!"
