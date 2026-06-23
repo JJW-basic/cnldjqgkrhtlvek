@@ -15,7 +15,7 @@ export function LoginPage() {
     alert(
       "Naver API 검수 요청은 추후에 진행할 예정이며, 카카오 API 인증만 가능합니다.\n\n" +
       "테스용 카카오 임시 계정\n" +
-      " ID: test@yzcalo.com\n" +
+      " ID: itwlrwkd@gmail.com\n" +
       " PW: xptmxmdyd1!"
     );
   };
